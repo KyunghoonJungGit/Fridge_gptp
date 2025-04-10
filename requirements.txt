@@ -1,3 +1,5 @@
 dash==2.9.3
 plotly==5.14.1
-influxdb-client==1.35.0 
+influxdb-client==1.35.0
+python-dotenv==1.0.0
+PyYAML==6.0
