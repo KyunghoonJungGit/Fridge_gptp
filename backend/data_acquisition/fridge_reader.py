@@ -11,7 +11,7 @@ Key features:
 
 @dependencies
 - Python standard libraries: typing, datetime
-- Project modules: dummpy_bluefors_fridge (DummyBlueforsSlave), backend.utils.logger (for logging)
+- Project modules: dummy_bluefors_fridge (DummyBlueforsSlave), backend.utils.logger (for logging)
   
 @notes
 - This is a foundational step. Additional logic (e.g., polling or scheduling) will be introduced in later steps.
@@ -21,17 +21,22 @@ Key features:
 from typing import Dict, Any, List
 from datetime import datetime
 
-# We import our DummyBlueforsSlave from the existing dummpy_bluefors_fridge.py
-# (Note the unusual file name 'dummpy' in the repository.)
-from dummpy_bluefors_fridge import DummyBlueforsSlave
+# Importing the dummy fridge simulator
+from dummy_bluefors_fridge import DummyBlueforsSlave
 
-# We also import our logging utility for consistent log messages
+# Project-wide logger
 from backend.utils.logger import get_logger
+
+# Import InfluxDB connector for writing data
+from backend.db.influx_connector import write_data
 
 logger = get_logger(__name__)
 
 # Internal dictionary mapping fridge_id -> DummyBlueforsSlave instance
 _fridges: Dict[str, DummyBlueforsSlave] = {}
+
+# Short-lived in-memory cache for the latest polled data from each fridge
+_latest_data: Dict[str, Dict[str, Any]] = {}
 
 
 def init_fridges() -> None:
@@ -130,3 +135,63 @@ def get_current_data(fridge_id: str) -> Dict[str, Any]:
     }
 
     return data_snapshot
+
+
+def poll_all_fridges() -> None:
+    """
+    Poll all known fridge instances to retrieve current data and write it to InfluxDB.
+    Additionally, cache the latest data in the _latest_data dict.
+
+    :return: None
+    """
+    for fridge_id in get_fridge_ids():
+        data = get_current_data(fridge_id)
+        # Update our in-memory cache
+        _latest_data[fridge_id] = data
+
+        # For testing: print the data we would write to InfluxDB
+        logger.info("[poll_all_fridges] Got data from %s: %s", 
+                   fridge_id, 
+                   {k: v for k, v in data.items() if k != 'channels'})  # Skip channels for cleaner output
+
+        # Temporarily comment out InfluxDB writing for testing
+        """
+        # Prepare fields to store in InfluxDB under measurement "fridge_status"
+        fields = {}
+
+        # sensor_status contains temperature sensors, etc.
+        sensor_dict = data["sensor_status"]
+        for sensor_key, sensor_val in sensor_dict.items():
+            # Attempt to store numeric sensor values as floats if possible
+            try:
+                fields[sensor_key] = float(sensor_val)
+            except ValueError:
+                # If parse fails (e.g., "N/A"), skip or store as string
+                pass
+
+        # Pressures come as a list of floats
+        pressures = data.get("last_pressures_mbar", [])
+        for i, p in enumerate(pressures):
+            fields[f"pressure_{i}"] = p
+
+        # Store the state message as a string field
+        fields["state_message"] = data.get("state_message", "")
+
+        # The fridge_id is stored as a tag in InfluxDB
+        fields["fridge_id"] = fridge_id
+
+        # Store the recorded time as a field
+        fields["poll_time"] = data["timestamp"]
+
+        # Write to InfluxDB
+        write_data("fridge_status", fields)
+        """
+
+
+def get_latest_data(fridge_id: str) -> Dict[str, Any]:
+    """
+    Retrieve the most recently polled data from memory for the given fridge.
+    :param fridge_id: The unique ID of the fridge.
+    :return: A dictionary with the cached data, or an empty dict if none available.
+    """
+    return _latest_data.get(fridge_id, {})
