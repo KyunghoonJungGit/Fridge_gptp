@@ -12,6 +12,8 @@ Key features:
 
 import dash
 from dash import html
+from backend.db.influx_connector import init_influxdb_client
+init_influxdb_client()
 
 app = dash.Dash(__name__)
 server = app.server  # The underlying Flask server

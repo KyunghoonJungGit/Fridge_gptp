@@ -25,6 +25,10 @@ from dotenv import load_dotenv
 # Load environment variables from .env
 load_dotenv()
 
+# Initialize InfluxDB client
+from backend.db.influx_connector import init_influxdb_client
+init_influxdb_client()
+
 # Load the Dash app from backend/app.py
 # By convention, app.py sets app = dash.Dash(__name__) and server = app.server
 from backend.app import app, server
