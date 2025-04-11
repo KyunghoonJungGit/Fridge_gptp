@@ -1,13 +1,17 @@
-/* 
-@description
-Revised CSS with improved dark theme readability.
-*/
+/* Import a Google Font (optional) */
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&display=swap');
 
-/* ---------- Light Theme ---------- */
-.light-theme body, .light-theme html {
-  margin: 0; 
+
+/* =====================
+   LIGHT THEME
+   ===================== */
+
+.light-theme body,
+.light-theme html {
+  margin: 0;
   padding: 0;
-  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-family: 'Open Sans', Arial, sans-serif;
+  font-size: 14px;
   background-color: #f8f9fa;
   color: #333;
 }
@@ -24,7 +28,7 @@ Revised CSS with improved dark theme readability.
 .light-theme table.overview-table td {
   padding: 8px 12px;
   border-bottom: 1px solid #ccc;
-  color: #333; /* ensure text color on light bg */
+  color: #333;
 }
 .light-theme table.overview-table th {
   background-color: #e9ecef;
@@ -39,9 +43,13 @@ Revised CSS with improved dark theme readability.
 .light-theme #alert-banner {
   background-color: #fff;
   color: #333;
+  border: 1px solid #f9c74f;
+  border-left: 5px solid #f9c74f;
+  padding: 10px;
+  margin-bottom: 15px;
 }
 
-/* Minimal "badge" styling for statuses (light) */
+/* Minimal "badge" styling (light) */
 .light-theme .badge {
   display: inline-block;
   padding: 2px 6px;
@@ -51,10 +59,10 @@ Revised CSS with improved dark theme readability.
   margin-right: 6px;
   color: #fff;
 }
-.light-theme .badge-green { background-color: #28a745; }
+.light-theme .badge-green  { background-color: #28a745; }
 .light-theme .badge-yellow { background-color: #ffc107; color: #000; }
-.light-theme .badge-red { background-color: #dc3545; }
-.light-theme .badge-blue { background-color: #007bff; }
+.light-theme .badge-red    { background-color: #dc3545; }
+.light-theme .badge-blue   { background-color: #007bff; }
 
 /* Buttons (light) */
 .light-theme button {
@@ -71,14 +79,33 @@ Revised CSS with improved dark theme readability.
   background-color: #0056b3;
 }
 
+/* A generic "panel-box" container for our detail pages (light) */
+.light-theme .panel-box {
+  background-color: #fff;
+  padding: 15px;
+  border-radius: 5px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
 
-/* ---------- Dark Theme ---------- */
-.dark-theme body, .dark-theme html {
+
+/* =====================
+   DARK THEME
+   ===================== */
+
+.dark-theme body,
+.dark-theme html {
   margin: 0;
   padding: 0;
-  font-family: "Helvetica Neue", Arial, sans-serif;
-  background-color: #1e1e1e; /* darker overall */
-  color: #f0f0f0;            /* lighter text for better contrast */
+  font-family: 'Open Sans', Arial, sans-serif;
+  font-size: 14px;
+  background-color: #1e1e1e; /* a deep gray */
+  color: #eaeaea;
+}
+
+/* Example: Headings in dark theme (make them brighter) */
+.dark-theme h1, .dark-theme h2, .dark-theme h3,
+.dark-theme h4, .dark-theme h5, .dark-theme h6 {
+  color: #ffffff;
 }
 
 /* Table styling (dark) */
@@ -93,7 +120,7 @@ Revised CSS with improved dark theme readability.
 .dark-theme table.overview-table td {
   padding: 8px 12px;
   border-bottom: 1px solid #555;
-  color: #f0f0f0; /* ensure text is visible on dark bg */
+  color: #f0f0f0;
 }
 .dark-theme table.overview-table th {
   background-color: #3a3a3a;
@@ -110,9 +137,11 @@ Revised CSS with improved dark theme readability.
   color: #eee;
   border: 1px solid #f9c74f;
   border-left: 5px solid #f9c74f;
+  padding: 10px;
+  margin-bottom: 15px;
 }
 
-/* Minimal "badge" styling for statuses (dark) */
+/* Minimal "badge" styling (dark) */
 .dark-theme .badge {
   display: inline-block;
   padding: 2px 6px;
@@ -140,4 +169,12 @@ Revised CSS with improved dark theme readability.
 }
 .dark-theme button:hover {
   background-color: #666;
+}
+
+/* The "panel-box" container in dark theme */
+.dark-theme .panel-box {
+  background-color: #474747;
+  padding: 15px;
+  border-radius: 5px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.6);
 }

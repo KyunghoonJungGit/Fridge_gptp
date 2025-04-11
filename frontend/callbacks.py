@@ -132,10 +132,13 @@ def init_callbacks(app):
     @app.callback(
         [Output('temp-history-graph', 'figure'),
          Output('latest-readings', 'children')],
-        [Input('detail-interval', 'n_intervals'),
-         Input('hidden-fridge-id', 'children')]
+        [
+            Input('detail-interval', 'n_intervals'),
+            Input('hidden-fridge-id', 'children'),
+            Input('theme-store', 'data')  # <-- add the theme store as input
+        ]
     )
-    def update_detail_page(_, fridge_id):
+    def update_detail_page(_, fridge_id, current_theme):
         if not fridge_id:
             return {}, html.P("No fridge selected")
 
@@ -143,17 +146,24 @@ def init_callbacks(app):
         if not latest:
             return {}, html.P("No data available")
 
-        # Mock time series
+        # Build a simple mock time series
         now = datetime.now()
         times = [now - timedelta(minutes=i) for i in range(30, -1, -1)]
-
         try:
             mix_current = float(latest['sensor_status'].get('mix_chamber', 300.0))
         except ValueError:
             mix_current = 300.0
-
-        # Just create a small upward slope for demonstration
         temps = [mix_current + (i * 0.05) for i in range(31)]
+
+        # Decide background colors based on theme
+        if current_theme == "dark-theme":
+            paper_bg = "#1e1e1e"
+            plot_bg = "#2b2b2b"
+            font_col = "#f0f0f0"
+        else:
+            paper_bg = "#f8f9fa"
+            plot_bg = "#ffffff"
+            font_col = "#333333"
 
         fig = go.Figure()
         fig.add_trace(go.Scatter(
@@ -167,14 +177,18 @@ def init_callbacks(app):
             title=f"Temperature History - {fridge_id}",
             xaxis_title="Time",
             yaxis_title="Temperature (K)",
-            hovermode="x unified"
+            hovermode="x unified",
+            paper_bgcolor=paper_bg,
+            plot_bgcolor=plot_bg,
+            font=dict(color=font_col)
         )
 
-        # Latest readings table
+        # Build the "Latest Readings" table
         sensor_rows = []
         sensor_status = latest.get('sensor_status', {})
         for k, v in sensor_status.items():
             sensor_rows.append(html.Tr([html.Td(k), html.Td(str(v))]))
+
         sensor_rows.append(
             html.Tr([html.Td("State"), html.Td(latest.get('state_message', 'N/A'))])
         )
@@ -183,9 +197,7 @@ def init_callbacks(app):
             [html.Tr([html.Th("Sensor"), html.Th("Value")])] + sensor_rows,
             style={'width': '100%', 'border': '1px solid #ddd'}
         )
-
         return fig, readings_table
-
 
     @app.callback(
         Output('command-feedback', 'children'),
