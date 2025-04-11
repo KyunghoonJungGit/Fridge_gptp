@@ -44,7 +44,7 @@ USERNAME_PASSWORD = {
 }
 
 def init_callbacks(app):
-    """Register all callbacks for overview, detail pages, command handling, login, and theme toggling."""
+    """Register all callbacks for overview, detail pages, commands, login, and theme toggling."""
 
     @app.callback(
         [Output('fridge-overview-table', 'children'),
@@ -83,52 +83,51 @@ def init_callbacks(app):
             lowest_p = min(pressures) if pressures else "N/A"
             state_msg = latest.get("state_message", "N/A")
 
-            color_class = "badge-blue"
+            # Badge color by fridge ID
             if "1" in fid:
-                color_class = "badge-green"
+                fid_badge_class = "badge-green"
             elif "2" in fid:
-                color_class = "badge-yellow"
+                fid_badge_class = "badge-yellow"
+            else:
+                fid_badge_class = "badge-blue"
 
+            # Temperature color badge
             try:
-                mix_temp_val = float(mix_temp_str)
-                if mix_temp_val < 300.0:
-                    temp_color_class = "badge-green"
-                else:
-                    temp_color_class = "badge-red"
+                mix_val = float(mix_temp_str)
+                temp_badge_class = "badge-green" if mix_val < 300 else "badge-red"
             except ValueError:
-                temp_color_class = "badge-yellow"
-
-            temp_badge = html.Span(
-                mix_temp_str,
-                className=f"badge {temp_color_class}"
-            )
+                temp_badge_class = "badge-yellow"
 
             row = html.Tr([
-                html.Td(_colored_fridge_id(fid, color_class)),
-                html.Td(temp_badge),
+                html.Td(_colored_fridge_id(fid, fid_badge_class)),
+                html.Td(html.Span(mix_temp_str, className=f"badge {temp_badge_class}")),
                 html.Td(str(lowest_p)),
                 html.Td(state_msg),
                 html.Td(dcc.Link("View Details", href=f"/fridge/{fid}"))
             ])
             table_rows.append(row)
 
+        # Check for new alerts
         all_alerts = fridge_reader.pop_all_alerts()
         if all_alerts:
             alert_content = [html.H4("⚠️ New Alerts")]
             for afid, alerts in all_alerts.items():
                 if alerts:
                     alert_content.append(html.H5(f"Fridge: {afid}"))
-                    alert_list = html.Ul([html.Li(alert) for alert in alerts])
+                    alert_list = html.Ul([html.Li(a) for a in alerts])
                     alert_content.append(alert_list)
 
-            alert_style = {
+            # Show the banner
+            banner_style = {
                 'display': 'block',
                 'backgroundColor': '#fff'
             }
-            return ([table_header] + table_rows), alert_content, alert_style
+            return ([table_header] + table_rows), alert_content, banner_style
         else:
-            alert_style = {'display': 'none'}
-            return ([table_header] + table_rows), [], alert_style
+            # Hide the banner
+            banner_style = {'display': 'none'}
+            return ([table_header] + table_rows), [], banner_style
+
 
     @app.callback(
         [Output('temp-history-graph', 'figure'),
@@ -144,6 +143,7 @@ def init_callbacks(app):
         if not latest:
             return {}, html.P("No data available")
 
+        # Mock time series
         now = datetime.now()
         times = [now - timedelta(minutes=i) for i in range(30, -1, -1)]
 
@@ -152,6 +152,7 @@ def init_callbacks(app):
         except ValueError:
             mix_current = 300.0
 
+        # Just create a small upward slope for demonstration
         temps = [mix_current + (i * 0.05) for i in range(31)]
 
         fig = go.Figure()
@@ -169,6 +170,7 @@ def init_callbacks(app):
             hovermode="x unified"
         )
 
+        # Latest readings table
         sensor_rows = []
         sensor_status = latest.get('sensor_status', {})
         for k, v in sensor_status.items():
@@ -183,6 +185,7 @@ def init_callbacks(app):
         )
 
         return fig, readings_table
+
 
     @app.callback(
         Output('command-feedback', 'children'),
@@ -223,17 +226,21 @@ def init_callbacks(app):
         if triggered_id == 'toggle-pulsetube-btn':
             ok = execute_command(fridge_id, "toggle_pulsetube")
             return "Pulsetube toggled successfully." if ok else "Failed to toggle pulsetube."
+
         elif triggered_id == 'toggle-compressor-btn':
             ok = execute_command(fridge_id, "toggle_compressor")
             return "Compressor toggled successfully." if ok else "Failed to toggle compressor."
+
         elif triggered_id == 'toggle-turbo-btn':
             ok = execute_command(fridge_id, "toggle_turbo")
             return "Turbo toggled successfully." if ok else "Failed to toggle turbo."
+
         elif triggered_id == 'toggle-valve-btn':
             if not valve_name:
                 return "Please enter a valve name."
             ok = execute_command(fridge_id, "toggle_valve", {"valve_name": valve_name})
             return f"Valve '{valve_name}' toggled." if ok else f"Failed to toggle valve '{valve_name}'."
+
         elif triggered_id == 'toggle-heat-switch-btn':
             if not heat_switch_name:
                 return "Please enter a heat switch name."
@@ -241,6 +248,7 @@ def init_callbacks(app):
             return f"Heat switch '{heat_switch_name}' toggled." if ok else f"Failed to toggle heat switch '{heat_switch_name}'."
 
         return ""
+
 
     @app.callback(
         [Output('login-error-msg', 'children'),
@@ -252,7 +260,6 @@ def init_callbacks(app):
     def login_callback(n_clicks, username, password):
         if n_clicks is None or n_clicks == 0:
             return "", no_update
-
         if not username or not password:
             return "Please enter username and password.", no_update
 
@@ -263,6 +270,7 @@ def init_callbacks(app):
         else:
             return "Invalid username or password.", no_update
 
+
     @app.callback(
         Output('control-section', 'style'),
         Input('hidden-fridge-id', 'children')
@@ -272,7 +280,8 @@ def init_callbacks(app):
             return {'display': 'none'}
         return {'display': 'block'}
 
-    # ============= THEME TOGGLING CALLBACKS =============
+
+    # THEME TOGGLING
     @app.callback(
         Output("theme-store", "data"),
         Input("theme-toggle-button", "n_clicks"),
@@ -280,9 +289,6 @@ def init_callbacks(app):
         prevent_initial_call=True
     )
     def toggle_theme(n_clicks, current_theme):
-        """
-        Flip between "light-theme" and "dark-theme" whenever the user clicks the moon button.
-        """
         if n_clicks is None:
             return current_theme
         return "dark-theme" if current_theme == "light-theme" else "light-theme"
@@ -292,10 +298,8 @@ def init_callbacks(app):
         Input("theme-store", "data")
     )
     def set_container_class(current_theme):
-        """
-        Set the actual className of the theme-container div to whatever is stored in theme-store.
-        """
         return current_theme
+
 
 def _colored_fridge_id(fid: str, color_class: str):
     return html.Span([

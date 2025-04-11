@@ -25,6 +25,10 @@ Key features:
   to get the latest fridge info and send commands remotely.
 - No authentication is enforced for these endpoints in this minimal example.
 """
+"""
+@description
+Main entry point for the Fridge Monitoring Dash/Flask application.
+"""
 
 import dash
 from dash import html, dcc
@@ -65,14 +69,15 @@ app.layout = html.Div(
             style={"textAlign": "right", "padding": "10px"},
             children=[
                 html.Button(
-                    "🌙",
+                    "🌙",  # moon icon
                     id="theme-toggle-button",
                     title="Toggle Dark Mode",
                     style={
-                        "fontSize": "16px",
+                        "fontSize": "18px",
                         "cursor": "pointer",
                         "backgroundColor": "transparent",
-                        "border": "none"
+                        "border": "none",
+                        "outline": "none"
                     }
                 ),
             ]
@@ -99,32 +104,19 @@ app.layout = html.Div(
     Input('url', 'pathname')
 )
 def display_page(pathname):
-    """
-    Route to different pages based on URL pathname.
-    If the user is not logged in and tries to access a restricted page, 
-    redirect or show a message prompting them to log in.
-    """
-    # For easy check: user logged_in status from Flask session
+    # Check if user is logged in
     is_logged_in = flask.session.get('logged_in', False)
 
-    # Routing logic
     if pathname in ('', '/', '/overview'):
-        # Show multi-fridge overview (accessible to anyone, even if not logged in)
         return get_overview_layout()
-
     elif pathname == '/login':
-        # Show login page
         return get_login_layout()
-
     elif pathname and pathname.startswith('/fridge/'):
-        # If not logged in, show a "please log in" message or redirect
         if not is_logged_in:
             return html.Div([
                 html.H2("Access Denied - Please Log In"),
                 dcc.Link("Go to Login", href="/login")
             ])
-
-        # Otherwise, parse the fridge_id
         fridge_id = pathname.split('/fridge/')[-1]
         if fridge_id in get_fridge_ids():
             return get_fridge_detail_layout(fridge_id)
@@ -132,73 +124,43 @@ def display_page(pathname):
             html.H2("Error: Invalid fridge ID"),
             dcc.Link("Back to Overview", href="/")
         ])
-
     else:
         return html.Div([
             html.H2("404 - Page not found"),
             dcc.Link("Back to Overview", href="/")
         ])
 
-# Initialize callbacks (for overview, detail pages, commands, login, theme toggling)
+# Initialize all Dash callbacks
 init_callbacks(app)
 
 # Background polling callback
 @app.callback(
-    Output('poll-interval', 'disabled'),  # Dummy output to keep callback running
+    Output('poll-interval', 'disabled'),
     Input('poll-interval', 'n_intervals')
 )
 def trigger_polling(_):
-    """
-    Poll all fridges in the background every interval.
-    Writes or caches data internally. 
-    By returning False, we keep the interval active.
-    """
     poll_all_fridges()
     return False
 
-# -----------------------
-# NEW: JSON API Endpoints
-# -----------------------
 
+# JSON API Endpoints
 @server.route('/api/fridge/<fridge_id>/latest', methods=['GET'])
 def api_get_fridge_latest(fridge_id):
-    """
-    Return the latest polled data for the specified fridge in JSON format.
-    {
-      "success": true/false,
-      "data": {...}
-    }
-    """
     try:
         if fridge_id not in get_fridge_ids():
             return jsonify({"success": False, "error": "Invalid fridge_id"}), 400
-
         data = get_latest_data(fridge_id)
         if not data:
             return jsonify({"success": False, "error": "No data available"}), 404
-
         return jsonify({"success": True, "data": data}), 200
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
 @server.route('/api/fridge/<fridge_id>/command', methods=['POST'])
 def api_post_fridge_command(fridge_id):
-    """
-    Execute a command on the specified fridge. Expects JSON body:
-    {
-      "command": "toggle_valve" | "toggle_pulsetube" | ...,
-      "params": {...}  # optional
-    }
-    Returns a JSON response:
-    {
-      "success": true/false,
-      "message": "some message"
-    }
-    """
     try:
         if fridge_id not in get_fridge_ids():
             return jsonify({"success": False, "error": "Invalid fridge_id"}), 400
-
         json_body = request.get_json(force=True, silent=True) or {}
         command = json_body.get("command", "").strip()
         params = json_body.get("params", {})
@@ -211,9 +173,9 @@ def api_post_fridge_command(fridge_id):
             return jsonify({"success": True, "message": "Command executed successfully"}), 200
         else:
             return jsonify({"success": False, "message": "Command execution failed"}), 400
-
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
 
 if __name__ == "__main__":
     app.run_server(debug=True, host="127.0.0.1", port=8050)
