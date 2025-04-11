@@ -1,0 +1,13 @@
+README.md
+setup.py
+fridge_client_lib.egg-info/PKG-INFO
+fridge_client_lib.egg-info/SOURCES.txt
+fridge_client_lib.egg-info/dependency_links.txt
+fridge_client_lib.egg-info/requires.txt
+fridge_client_lib.egg-info/top_level.txt
+python_client/__init__.py
+python_client/client.py
+tests/test_command_controller.py
+tests/test_fridge_reader.py
+tests/test_influx_connector.py
+tests/test_integration.py

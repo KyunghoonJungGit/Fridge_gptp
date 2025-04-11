@@ -1,0 +1,11 @@
+Metadata-Version: 2.2
+Name: fridge_client_lib
+Version: 0.1.0
+Summary: A Python client for remote fridge monitoring and control
+Author: Lab Team
+Requires-Python: >=3.6
+Requires-Dist: requests>=2.20.0
+Dynamic: author
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
