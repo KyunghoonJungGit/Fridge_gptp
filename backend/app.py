@@ -14,47 +14,61 @@ import dash
 from dash import html, dcc
 from dash.dependencies import Input, Output
 
-from backend.data_acquisition.fridge_reader import init_fridges, poll_all_fridges
+from backend.data_acquisition.fridge_reader import init_fridges, poll_all_fridges, get_fridge_ids
+from frontend.layouts import get_overview_layout, get_fridge_detail_layout
+from frontend.callbacks import init_callbacks
 
-# Initialize the dummy fridges
+# Initialize dummy fridges
 init_fridges()
 
-app = dash.Dash(__name__)
-server = app.server  # The underlying Flask server
+app = dash.Dash(__name__, suppress_callback_exceptions=True)
+server = app.server
 
-# Simple layout:
-# 1) A heading
-# 2) A message
-# 3) An Interval component set to 1-second intervals
-# 4) A 'div' to display a poll status message
+# Define the base layout with URL routing
 app.layout = html.Div([
-    html.H1("Fridge Monitoring Dashboard"),
-    html.P("Hello World! This is a minimal Dash application."),
+    # URL Location component for routing
+    dcc.Location(id='url', refresh=False),
+    
+    # Main content div that will be updated based on URL
+    html.Div(id='page-content'),
 
-    # Interval for real-time polling (1000 ms = 1 second)
+    # Background polling interval
     dcc.Interval(
         id='poll-interval',
         interval=1000,  # 1 second
         n_intervals=0
     ),
-
-    html.Div(id='poll-status', style={"marginTop": "20px", "fontWeight": "bold"})
 ])
 
-
+# URL routing callback
 @app.callback(
-    Output('poll-status', 'children'),
+    Output('page-content', 'children'),
+    Input('url', 'pathname')
+)
+def display_page(pathname):
+    """Route to different pages based on URL pathname"""
+    if pathname == '/' or pathname == '':
+        return get_overview_layout()
+    elif pathname and pathname.startswith('/fridge/'):
+        fridge_id = pathname.split('/fridge/')[-1]
+        if fridge_id in get_fridge_ids():
+            return get_fridge_detail_layout(fridge_id)
+        return html.Div([html.H2("Error: Invalid fridge ID"), dcc.Link("Back to Overview", href="/")])
+    else:
+        return html.Div([html.H2("404 - Page not found"), dcc.Link("Back to Overview", href="/")])
+
+# Initialize all callbacks
+init_callbacks(app)
+
+# Background polling callback
+@app.callback(
+    Output('poll-interval', 'disabled'),  # Dummy output to keep callback running
     Input('poll-interval', 'n_intervals')
 )
-def trigger_polling(n_calls):
-    """
-    This callback is invoked every time the Interval fires (every 1 second).
-    It calls poll_all_fridges() to retrieve updated data from all dummy fridge instances
-    and store it in InfluxDB.
-    We return a status string indicating how many times the poll has run.
-    """
+def trigger_polling(_):
+    """Poll all fridges in the background"""
     poll_all_fridges()
-    return f"Polling iteration #{n_calls}. Data written to InfluxDB."
+    return False  # Keep the interval enabled
 
 if __name__ == "__main__":
     app.run_server(debug=True, host="127.0.0.1", port=8050) 
