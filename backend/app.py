@@ -52,21 +52,46 @@ init_fridges()
 app = dash.Dash(__name__, suppress_callback_exceptions=True)
 server = app.server  # Expose the Flask server for session handling
 
-# Define the base layout with URL routing
-app.layout = html.Div([
-    # URL Location component for routing
-    dcc.Location(id='url', refresh=False),
-    
-    # Main content div that will be updated based on URL
-    html.Div(id='page-content'),
+# Define the base layout with theme container + top-right toggle
+app.layout = html.Div(
+    id="theme-container",
+    className="light-theme",  # default
+    children=[
+        # Hidden store that remembers which theme is currently selected
+        dcc.Store(id="theme-store", data="light-theme"),
 
-    # Background polling interval for fridge data
-    dcc.Interval(
-        id='poll-interval',
-        interval=1000,  # 1 second
-        n_intervals=0
-    ),
-])
+        # A simple top bar that includes the "Dark Mode" toggle button
+        html.Div(
+            style={"textAlign": "right", "padding": "10px"},
+            children=[
+                html.Button(
+                    "🌙",
+                    id="theme-toggle-button",
+                    title="Toggle Dark Mode",
+                    style={
+                        "fontSize": "16px",
+                        "cursor": "pointer",
+                        "backgroundColor": "transparent",
+                        "border": "none"
+                    }
+                ),
+            ]
+        ),
+
+        # URL Location component for routing
+        dcc.Location(id='url', refresh=False),
+        
+        # Main content div that will be updated based on URL
+        html.Div(id='page-content'),
+
+        # Background polling interval for fridge data
+        dcc.Interval(
+            id='poll-interval',
+            interval=1000,  # 1 second
+            n_intervals=0
+        ),
+    ]
+)
 
 # URL routing callback
 @app.callback(
@@ -114,7 +139,7 @@ def display_page(pathname):
             dcc.Link("Back to Overview", href="/")
         ])
 
-# Initialize callbacks (for overview, detail pages, commands, login)
+# Initialize callbacks (for overview, detail pages, commands, login, theme toggling)
 init_callbacks(app)
 
 # Background polling callback

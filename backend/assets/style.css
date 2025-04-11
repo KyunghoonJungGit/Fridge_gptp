@@ -1,23 +1,21 @@
-
 /* 
 @description
 CSS file for minimal, modern styling of the Fridge Monitoring dashboard.
+Now includes both "light-theme" and "dark-theme" scopes.
 
 Key features:
-- Soft color palette for backgrounds, borders, and text.
+- Soft color palette for the light theme (as before).
 - Hover effect for table rows.
-- Badge classes for color-coding statuses (green, red, yellow).
+- Badge classes for color-coding statuses (green, red, yellow, etc.).
 - Basic styling for alert banner and control buttons.
-
-@dependencies
-- Dash automatically loads assets/*.css files, no extra import needed.
+- Additional .dark-theme block for a VSCode-like dark gray + dark blue highlight.
 
 @notes
-- Adjust color codes or layout rules as desired.
-"""
+- The top-level container gets either class="light-theme" or class="dark-theme".
+*/
 
-/* General reset for margin/padding */
-body, html {
+/* ========== Light Theme Rules ========== */
+.light-theme body, .light-theme html {
   margin: 0;
   padding: 0;
   font-family: "Helvetica Neue", Arial, sans-serif;
@@ -25,38 +23,39 @@ body, html {
   color: #333;
 }
 
-/* Table styling */
-table.overview-table {
+/* Table styling (light) */
+.light-theme table.overview-table {
   width: 100%;
   border-collapse: collapse;
   margin-bottom: 20px;
   background: #fff;
   box-shadow: 0 2px 3px rgba(0,0,0,0.06);
 }
-table.overview-table th,
-table.overview-table td {
+.light-theme table.overview-table th,
+.light-theme table.overview-table td {
   padding: 8px 12px;
   border-bottom: 1px solid #ccc;
 }
-table.overview-table th {
+.light-theme table.overview-table th {
   background-color: #e9ecef;
   font-weight: 600;
   text-align: left;
 }
-table.overview-table tr:hover {
+.light-theme table.overview-table tr:hover {
   background-color: #f1f3f5;
 }
 
-/* Alert banner */
-#alert-banner {
+/* Alert banner (light) */
+.light-theme #alert-banner {
   border: 1px solid #f9c74f;
   border-left: 5px solid #f9c74f;
   padding: 10px;
   margin-bottom: 15px;
+  background-color: #fff;
 }
 
-/* Minimal "badge" styling for statuses */
-.badge {
+/* Minimal "badge" styling for statuses (light) */
+.light-theme .badge {
   display: inline-block;
   padding: 2px 6px;
   font-size: 0.85em;
@@ -65,22 +64,22 @@ table.overview-table tr:hover {
   margin-right: 6px;
   color: #fff;
 }
-.badge-green {
+.light-theme .badge-green {
   background-color: #28a745; /* green */
 }
-.badge-yellow {
+.light-theme .badge-yellow {
   background-color: #ffc107; /* yellow */
   color: #000;
 }
-.badge-red {
+.light-theme .badge-red {
   background-color: #dc3545; /* red */
 }
-.badge-blue {
+.light-theme .badge-blue {
   background-color: #007bff; /* blue */
 }
 
-/* Buttons */
-button {
+/* Buttons (light) */
+.light-theme button {
   background-color: #007bff;
   border: none;
   color: #fff;
@@ -90,6 +89,88 @@ button {
   border-radius: 4px;
   font-size: 0.9em;
 }
-button:hover {
+.light-theme button:hover {
   background-color: #0056b3;
+}
+
+
+/* ========== Dark Theme Rules ========== */
+.dark-theme body, .dark-theme html {
+  margin: 0;
+  padding: 0;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  background-color: #2b2b2b;
+  color: #ccc;
+}
+
+/* Table styling (dark) */
+.dark-theme table.overview-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 20px;
+  background: #333;
+  box-shadow: 0 2px 3px rgba(0,0,0,0.5);
+}
+.dark-theme table.overview-table th,
+.dark-theme table.overview-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #555;
+}
+.dark-theme table.overview-table th {
+  background-color: #444;
+  font-weight: 600;
+  text-align: left;
+  color: #ddd;
+}
+.dark-theme table.overview-table tr:hover {
+  background-color: #3a3a3a;
+}
+
+/* Alert banner (dark) */
+.dark-theme #alert-banner {
+  border: 1px solid #f9c74f;
+  border-left: 5px solid #f9c74f;
+  padding: 10px;
+  margin-bottom: 15px;
+  background-color: #444;
+  color: #eee;
+}
+
+/* Minimal "badge" styling for statuses (dark) */
+.dark-theme .badge {
+  display: inline-block;
+  padding: 2px 6px;
+  font-size: 0.85em;
+  font-weight: 600;
+  border-radius: 4px;
+  margin-right: 6px;
+  color: #fff;
+}
+.dark-theme .badge-green {
+  background-color: #2d7d3e; /* a darker green */
+}
+.dark-theme .badge-yellow {
+  background-color: #d4ad00; /* darker gold */
+  color: #000;
+}
+.dark-theme .badge-red {
+  background-color: #b52b3d; /* deeper red */
+}
+.dark-theme .badge-blue {
+  background-color: #0056b3; /* deeper blue */
+}
+
+/* Buttons (dark) */
+.dark-theme button {
+  background-color: #444;
+  border: none;
+  color: #eee;
+  padding: 8px 12px;
+  margin-right: 6px;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+.dark-theme button:hover {
+  background-color: #666;
 }
