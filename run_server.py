@@ -1,29 +1,32 @@
-""" 
+"""
 @description
-Entry-point script for running the Dash/Flask server. Loads environment variables,
-reads YAML config, and starts the web application, now with an option to listen
-on 0.0.0.0 for external access.
+Entry-point script for running the Dash/Flask server with optional HTTPS support.  
+It loads environment variables, reads YAML configs, and starts the web application.  
+If `SSL_CERT_FILE` and `SSL_KEY_FILE` environment variables are specified, the app
+will run under HTTPS using those certificate/key files. Otherwise, it runs on plain HTTP.
 
 Key features:
-- Uses python-dotenv to load .env
-- Loads main config and device config from YAML
-- Sets Flask secret key (for session security) from environment
-- Supports environment variables for host, port, and debug mode
-- Imports the Dash app from backend/app.py and runs it
+1. Loads environment from `.env` (via python-dotenv).
+2. Initializes InfluxDB client connection.
+3. Reads main config (e.g. logging level) and device config from YAML.
+4. Sets Flask `secret_key` from environment variable to secure sessions.
+5. Optionally enables HTTPS if `SSL_CERT_FILE` and `SSL_KEY_FILE` are present in environment.
 
 @dependencies
-- python-dotenv: to load .env
-- utils/config_loader: to load YAML config
-- backend.app: contains the Dash app and server instance
+- python-dotenv: for loading .env environment variables.
+- backend.db.influx_connector: for InfluxDB initialization.
+- backend.app: the Dash app instance (which includes the Flask server).
+- utils.config_loader: loads YAML configurations.
+- SSL certificates or a reverse proxy for HTTPS (optional).
 
 @notes
-- Once the server starts, visit http://0.0.0.0:8050 (or your machine IP) in a browser to see the dashboard.
-- Adjust "host" or "port" as needed via environment variables (DASH_SERVER_HOST, DASH_SERVER_PORT).
-- For production, set FLASK_SECRET_KEY to a strong secret and set DASH_DEBUG=0 to disable debug mode.
-- See the README.md for instructions on configuring HTTPS via a reverse proxy.
+- If you don't have valid certificate/key files, the server defaults to HTTP.
+- For production usage, consider using a reverse proxy (Nginx/Apache) handling SSL 
+  and let this script listen on localhost with HTTP only.
 """
 
 import os
+import logging
 from dotenv import load_dotenv
 
 # Load environment variables from .env
@@ -33,29 +36,25 @@ load_dotenv()
 from backend.db.influx_connector import init_influxdb_client
 init_influxdb_client()
 
-# Load the Dash app from backend/app.py
-# By convention, app.py sets app = dash.Dash(__name__) and server = app.server
+# Import the Dash app from backend/app.py
 from backend.app import app, server
 
 # We'll need our YAML config loader
 from utils.config_loader import load_yaml_config
 
-# Load the main config (e.g., logging config, etc.)
+# Load the main config (e.g., logging config)
 main_config = load_yaml_config("config/config.yaml")
 
 # Load device/fridge config
 devices_config = load_yaml_config("config/devices.yaml")
 
-# Here we can do something with these configs if needed
-# e.g., set a logging level from main_config['logging']['level'], etc.
-import logging
-
+# Apply logging level from main_config if specified
 if main_config and "logging" in main_config and "level" in main_config["logging"]:
     level_str = main_config["logging"]["level"].upper()
     numeric_level = getattr(logging, level_str, logging.INFO)
     logging.getLogger().setLevel(numeric_level)
 
-# Set the Flask secret key from environment
+# Set the Flask secret key from environment or fallback
 secret_key = os.getenv("FLASK_SECRET_KEY", "fallback_secret_key")
 server.secret_key = secret_key
 
@@ -65,9 +64,23 @@ if __name__ == "__main__":
     dash_port = int(os.getenv("DASH_SERVER_PORT", "8050"))
     dash_debug = bool(int(os.getenv("DASH_DEBUG", "1")))
 
-    # Run the Dash server
+    # Optionally set up SSL if environment variables are found
+    ssl_cert_file = os.getenv("SSL_CERT_FILE")  # Path to cert file
+    ssl_key_file = os.getenv("SSL_KEY_FILE")    # Path to key file
+
+    ssl_context = None
+    if ssl_cert_file and ssl_key_file:
+        # If both are present, enable HTTPS
+        if os.path.isfile(ssl_cert_file) and os.path.isfile(ssl_key_file):
+            ssl_context = (ssl_cert_file, ssl_key_file)
+            logging.info(f"Using SSL context with cert='{ssl_cert_file}' and key='{ssl_key_file}'.")
+        else:
+            logging.warning("SSL_CERT_FILE or SSL_KEY_FILE path is invalid. Falling back to HTTP.")
+
+    # Run the Dash server (HTTPS if ssl_context is set, otherwise HTTP)
     app.run_server(
         debug=dash_debug,
         host=dash_host,
-        port=dash_port
+        port=dash_port,
+        ssl_context=ssl_context
     )
