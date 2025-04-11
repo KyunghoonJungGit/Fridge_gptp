@@ -27,6 +27,21 @@ def get_overview_layout():
     """Return the Dash layout for the multi-fridge overview screen."""
     layout = html.Div([
         html.H2("Multi-Fridge Overview"),
+        
+        # NEW: Alert banner for displaying newly detected alerts
+        html.Div(
+            id='alert-banner',
+            style={
+                'backgroundColor': '#ffeb3b',  # Yellow background
+                'color': '#000',
+                'padding': '10px',
+                'borderRadius': '5px',
+                'marginBottom': '15px',
+                'display': 'none'  # Initially hidden, shown when alerts exist
+            },
+            children=[]
+        ),
+        
         html.P("Below is a list of all active fridges with their latest temperature, pressure, and status."),
         # Table for fridge overview
         html.Table(

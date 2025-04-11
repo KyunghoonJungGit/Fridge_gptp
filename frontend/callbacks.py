@@ -45,21 +45,24 @@ def init_callbacks(app):
     """Register all callbacks for both overview, detail pages, command handling, and login."""
 
     # ---------------------------
-    # Multi-fridge overview table
+    # Multi-fridge overview table and alerts
     # ---------------------------
     @app.callback(
-        Output('fridge-overview-table', 'children'),
+        [Output('fridge-overview-table', 'children'),
+         Output('alert-banner', 'children'),
+         Output('alert-banner', 'style')],
         Input('poll-interval', 'n_intervals')
     )
-    def update_overview_table(_):
+    def update_overview_table_and_alerts(_):
         """
-        Periodically update the multi-fridge overview table.
+        Periodically update the multi-fridge overview table and check for new alerts.
         
         :param _: The current interval tick (unused).
-        :return: Updated table rows with fridge info.
+        :return: (Updated table rows, Alert messages, Alert banner style)
         """
         fridge_ids = fridge_reader.get_fridge_ids()
 
+        # Build the fridge overview table
         table_header = [
             html.Tr([
                 html.Th("Fridge ID"),
@@ -100,7 +103,43 @@ def init_callbacks(app):
             ])
             table_rows.append(row)
 
-        return table_header + table_rows
+        # NEW: Check for new alerts and build alert banner content
+        all_alerts = fridge_reader.pop_all_alerts()  # Get and clear all alerts
+        
+        if all_alerts:  # If we have any alerts
+            alert_content = [html.H4("⚠️ New Alerts")]
+            
+            for fid, alerts in all_alerts.items():
+                if alerts:  # Only add fridges with actual alerts
+                    alert_content.append(html.H5(f"Fridge: {fid}"))
+                    alert_list = html.Ul([
+                        html.Li(alert) for alert in alerts
+                    ])
+                    alert_content.append(alert_list)
+            
+            # Show the alert banner with yellow background
+            alert_style = {
+                'backgroundColor': '#ffeb3b',
+                'color': '#000',
+                'padding': '10px',
+                'borderRadius': '5px',
+                'marginBottom': '15px',
+                'display': 'block'  # Make it visible
+            }
+            
+            return table_header + table_rows, alert_content, alert_style
+        else:
+            # No alerts, keep the banner hidden
+            alert_style = {
+                'backgroundColor': '#ffeb3b',
+                'color': '#000',
+                'padding': '10px',
+                'borderRadius': '5px',
+                'marginBottom': '15px',
+                'display': 'none'  # Keep it hidden
+            }
+            
+            return table_header + table_rows, [], alert_style
 
     # ---------------------------
     # Fridge detail page updates

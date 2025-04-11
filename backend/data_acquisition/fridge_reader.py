@@ -20,6 +20,7 @@ Key features:
 
 from typing import Dict, Any, List
 from datetime import datetime
+from collections import defaultdict
 
 # Importing the dummy fridge simulator
 from dummy_bluefors_fridge import DummyBlueforsSlave
@@ -37,6 +38,9 @@ _fridges: Dict[str, DummyBlueforsSlave] = {}
 
 # Short-lived in-memory cache for the latest polled data from each fridge
 _latest_data: Dict[str, Dict[str, Any]] = {}
+
+# New for Step 11: Track newly generated alerts per fridge
+_latest_alerts: Dict[str, List[str]] = defaultdict(list)
 
 
 def init_fridges() -> None:
@@ -139,53 +143,45 @@ def get_current_data(fridge_id: str) -> Dict[str, Any]:
 
 def poll_all_fridges() -> None:
     """
-    Poll all known fridge instances to retrieve current data and write it to InfluxDB.
-    Additionally, cache the latest data in the _latest_data dict.
-
-    :return: None
+    Poll all known fridge instances to retrieve current data, detect new alerts, and optionally log to InfluxDB.
+    Also caches the latest data in _latest_data and accumulates any new alerts in _latest_alerts.
     """
     for fridge_id in get_fridge_ids():
         data = get_current_data(fridge_id)
-        # Update our in-memory cache
         _latest_data[fridge_id] = data
 
-        # For testing: print the data we would write to InfluxDB
-        logger.info("[poll_all_fridges] Got data from %s: %s", 
-                   fridge_id, 
-                   {k: v for k, v in data.items() if k != 'channels'})  # Skip channels for cleaner output
+        # Log data (commented out or optional):
+        # fields = {}
+        # sensor_dict = data["sensor_status"]
+        # for sensor_key, sensor_val in sensor_dict.items():
+        #     try:
+        #         fields[sensor_key] = float(sensor_val)
+        #     except ValueError:
+        #         pass
+        # pressures = data.get("last_pressures_mbar", [])
+        # for i, p in enumerate(pressures):
+        #     fields[f"pressure_{i}"] = p
+        # fields["fridge_id"] = fridge_id
+        # fields["poll_time"] = data["timestamp"]
+        # fields["state_message"] = data.get("state_message", "")
+        # write_data("fridge_status", fields)
 
-        # Temporarily comment out InfluxDB writing for testing
-        """
-        # Prepare fields to store in InfluxDB under measurement "fridge_status"
-        fields = {}
+        # NEW for Step 11: Detect and record any alerts
+        fridge = get_fridge_instance(fridge_id)
+        alerts = fridge.generate_alert_messages()
+        if alerts:
+            for alert_msg in alerts:
+                _latest_alerts[fridge_id].append(alert_msg)
+                # Optionally log these alerts to InfluxDB
+                # Example code:
+                # write_data("fridge_alerts", {
+                #     "fridge_id": fridge_id,
+                #     "alert_message": alert_msg,
+                #     "timestamp": datetime.now().isoformat()
+                # })
 
-        # sensor_status contains temperature sensors, etc.
-        sensor_dict = data["sensor_status"]
-        for sensor_key, sensor_val in sensor_dict.items():
-            # Attempt to store numeric sensor values as floats if possible
-            try:
-                fields[sensor_key] = float(sensor_val)
-            except ValueError:
-                # If parse fails (e.g., "N/A"), skip or store as string
-                pass
-
-        # Pressures come as a list of floats
-        pressures = data.get("last_pressures_mbar", [])
-        for i, p in enumerate(pressures):
-            fields[f"pressure_{i}"] = p
-
-        # Store the state message as a string field
-        fields["state_message"] = data.get("state_message", "")
-
-        # The fridge_id is stored as a tag in InfluxDB
-        fields["fridge_id"] = fridge_id
-
-        # Store the recorded time as a field
-        fields["poll_time"] = data["timestamp"]
-
-        # Write to InfluxDB
-        write_data("fridge_status", fields)
-        """
+        logger.info("[poll_all_fridges] Polled %s. Data: (omitted channels for brevity). Alerts: %s",
+                    fridge_id, alerts)
 
 
 def get_latest_data(fridge_id: str) -> Dict[str, Any]:
@@ -195,3 +191,27 @@ def get_latest_data(fridge_id: str) -> Dict[str, Any]:
     :return: A dictionary with the cached data, or an empty dict if none available.
     """
     return _latest_data.get(fridge_id, {})
+
+
+def pop_all_alerts(fridge_id: str = None) -> Dict[str, List[str]]:
+    """
+    Retrieve and clear all accumulated alerts for a specific fridge or all fridges.
+    
+    :param fridge_id: Optional fridge ID to retrieve alerts for. If None, returns alerts for all fridges.
+    :return: Dictionary mapping fridge_id to a list of alert messages.
+    """
+    result = {}
+    
+    if fridge_id is not None:
+        # Return alerts for just the specified fridge
+        if fridge_id in _latest_alerts:
+            result[fridge_id] = _latest_alerts[fridge_id].copy()
+            _latest_alerts[fridge_id].clear()
+    else:
+        # Return alerts for all fridges
+        for fid in _latest_alerts.keys():
+            if _latest_alerts[fid]:  # Only include fridges with alerts
+                result[fid] = _latest_alerts[fid].copy()
+                _latest_alerts[fid].clear()
+    
+    return result
