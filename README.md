@@ -97,19 +97,3 @@ Contributions are welcome. Fork this repository, make changes, and submit a pull
 
 License
 MIT License
-
-vbnet
-복사
-
----
-
-STEP 7 COMPLETE. Here's what I did and why:
-- I augmented `run_server.py` to check for SSL certificate paths in environment variables and configure `ssl_context` if valid.
-- I updated `README.md` to document how to set up HTTPS using either direct SSL context or a reverse proxy.
-
-USER INSTRUCTIONS:  
-1. If you want HTTPS directly in Flask, set `SSL_CERT_FILE` and `SSL_KEY_FILE` environment variables to valid certificate/key paths.  
-2. Otherwise, run `python run_server.py` as before for plain HTTP.  
-3. For production, we suggest using a reverse proxy (Nginx/Apache) with the provided snippet.  
-
-No changes to the Implementation Plan are required for this step.

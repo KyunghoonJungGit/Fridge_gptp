@@ -1,0 +1,95 @@
+
+/* 
+@description
+CSS file for minimal, modern styling of the Fridge Monitoring dashboard.
+
+Key features:
+- Soft color palette for backgrounds, borders, and text.
+- Hover effect for table rows.
+- Badge classes for color-coding statuses (green, red, yellow).
+- Basic styling for alert banner and control buttons.
+
+@dependencies
+- Dash automatically loads assets/*.css files, no extra import needed.
+
+@notes
+- Adjust color codes or layout rules as desired.
+"""
+
+/* General reset for margin/padding */
+body, html {
+  margin: 0;
+  padding: 0;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  background-color: #f8f9fa;
+  color: #333;
+}
+
+/* Table styling */
+table.overview-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 20px;
+  background: #fff;
+  box-shadow: 0 2px 3px rgba(0,0,0,0.06);
+}
+table.overview-table th,
+table.overview-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #ccc;
+}
+table.overview-table th {
+  background-color: #e9ecef;
+  font-weight: 600;
+  text-align: left;
+}
+table.overview-table tr:hover {
+  background-color: #f1f3f5;
+}
+
+/* Alert banner */
+#alert-banner {
+  border: 1px solid #f9c74f;
+  border-left: 5px solid #f9c74f;
+  padding: 10px;
+  margin-bottom: 15px;
+}
+
+/* Minimal "badge" styling for statuses */
+.badge {
+  display: inline-block;
+  padding: 2px 6px;
+  font-size: 0.85em;
+  font-weight: 600;
+  border-radius: 4px;
+  margin-right: 6px;
+  color: #fff;
+}
+.badge-green {
+  background-color: #28a745; /* green */
+}
+.badge-yellow {
+  background-color: #ffc107; /* yellow */
+  color: #000;
+}
+.badge-red {
+  background-color: #dc3545; /* red */
+}
+.badge-blue {
+  background-color: #007bff; /* blue */
+}
+
+/* Buttons */
+button {
+  background-color: #007bff;
+  border: none;
+  color: #fff;
+  padding: 8px 12px;
+  margin-right: 6px;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+button:hover {
+  background-color: #0056b3;
+}
