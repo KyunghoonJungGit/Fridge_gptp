@@ -34,7 +34,13 @@ def get_overview_layout():
         html.Div(
             id='alert-banner',
             style={
-                'display': 'none'  # visible when we have alerts
+                'display': 'none',  # visible when we have alerts
+                'backgroundColor': '#fff3cd',
+                'padding': '10px',
+                'borderRadius': '4px',
+                'border': '1px solid #f9c74f',
+                'borderLeft': '5px solid #f9c74f',
+                'marginBottom': '15px'
             },
             children=[]
         ),
@@ -50,8 +56,13 @@ def get_overview_layout():
 
         # Login link
         html.Div([
-            dcc.Link("Login", href="/login", style={'marginRight': '20px'})
-        ], style={'marginTop': '10px'})
+            dcc.Link("Login", href="/login", style={
+                'marginRight': '20px',
+                'color': '#007bff',
+                'textDecoration': 'none',
+                'fontWeight': '600'
+            })
+        ], style={'marginTop': '20px'})
     ], style={'padding': '20px'})
     return layout
 
@@ -64,9 +75,17 @@ def get_fridge_detail_layout(fridge_id: str):
     layout = html.Div([
         # Header with navigation
         html.Div([
-            html.H2(f"Fridge Details: {fridge_id}"),
-            dcc.Link("Back to Overview", href="/")
-        ], style={'marginBottom': '20px'}),
+            html.H2([
+                "Fridge Details: ",
+                html.Span(fridge_id, className="badge badge-blue"),
+                f" {fridge_id}"
+            ]),
+            dcc.Link("Back to Overview", href="/", style={
+                'color': '#007bff',
+                'textDecoration': 'none',
+                'fontWeight': '600'
+            })
+        ], style={'marginBottom': '20px', 'display': 'flex', 'justifyContent': 'space-between', 'alignItems': 'center'}),
 
         # Hidden div storing fridge_id for callbacks
         html.Div(fridge_id, id='hidden-fridge-id', style={'display': 'none'}),
@@ -85,13 +104,13 @@ def get_fridge_detail_layout(fridge_id: str):
                 id='temp-history-graph',
                 figure={}
             ),
-        ], style={'marginBottom': '20px'}),
+        ], style={'marginBottom': '20px', 'backgroundColor': '#fff', 'padding': '15px', 'borderRadius': '5px', 'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'}),
 
         # Latest readings section
         html.Div([
             html.H3("Latest Readings"),
             html.Div(id='latest-readings', children=[])
-        ], style={'marginBottom': '20px'}),
+        ], style={'marginBottom': '20px', 'backgroundColor': '#fff', 'padding': '15px', 'borderRadius': '5px', 'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'}),
 
         # Command/Control section (only if logged in)
         html.Div([
@@ -99,28 +118,35 @@ def get_fridge_detail_layout(fridge_id: str):
 
             # Row of toggle buttons for main components
             html.Div([
-                html.Button("Toggle Pulsetube", id='toggle-pulsetube-btn', n_clicks=0),
-                html.Button("Toggle Compressor", id='toggle-compressor-btn', n_clicks=0),
-                html.Button("Toggle Turbo", id='toggle-turbo-btn', n_clicks=0),
-            ], style={'marginBottom': '10px'}),
+                html.Button("Toggle Pulsetube", id='toggle-pulsetube-btn', n_clicks=0, 
+                    style={'backgroundColor': '#007bff', 'color': 'white', 'border': 'none', 'padding': '8px 12px', 'marginRight': '10px', 'borderRadius': '4px'}),
+                html.Button("Toggle Compressor", id='toggle-compressor-btn', n_clicks=0,
+                    style={'backgroundColor': '#007bff', 'color': 'white', 'border': 'none', 'padding': '8px 12px', 'marginRight': '10px', 'borderRadius': '4px'}),
+                html.Button("Toggle Turbo", id='toggle-turbo-btn', n_clicks=0,
+                    style={'backgroundColor': '#007bff', 'color': 'white', 'border': 'none', 'padding': '8px 12px', 'marginRight': '10px', 'borderRadius': '4px'}),
+            ], style={'marginBottom': '15px'}),
 
             # Valve
             html.Div([
-                html.Label("Valve Name:", style={'marginRight': '6px'}),
-                dcc.Input(id='valve-name-input', type='text', placeholder='e.g., v5'),
-                html.Button("Toggle Valve", id='toggle-valve-btn', n_clicks=0),
-            ], style={'marginBottom': '10px'}),
+                html.Label("Valve Name:", style={'marginRight': '10px', 'fontWeight': '600'}),
+                dcc.Input(id='valve-name-input', type='text', placeholder='e.g., v5', 
+                    style={'padding': '6px', 'marginRight': '10px', 'borderRadius': '4px', 'border': '1px solid #ccc'}),
+                html.Button("Toggle Valve", id='toggle-valve-btn', n_clicks=0,
+                    style={'backgroundColor': '#007bff', 'color': 'white', 'border': 'none', 'padding': '8px 12px', 'borderRadius': '4px'}),
+            ], style={'marginBottom': '15px', 'display': 'flex', 'alignItems': 'center'}),
 
             # Heat Switch
             html.Div([
-                html.Label("Heat Switch Name:", style={'marginRight': '6px'}),
-                dcc.Input(id='heat-switch-name-input', type='text', placeholder='e.g., hs-still'),
-                html.Button("Toggle Heat Switch", id='toggle-heat-switch-btn', n_clicks=0),
-            ], style={'marginBottom': '10px'}),
+                html.Label("Heat Switch Name:", style={'marginRight': '10px', 'fontWeight': '600'}),
+                dcc.Input(id='heat-switch-name-input', type='text', placeholder='e.g., hs-still',
+                    style={'padding': '6px', 'marginRight': '10px', 'borderRadius': '4px', 'border': '1px solid #ccc'}),
+                html.Button("Toggle Heat Switch", id='toggle-heat-switch-btn', n_clicks=0,
+                    style={'backgroundColor': '#007bff', 'color': 'white', 'border': 'none', 'padding': '8px 12px', 'borderRadius': '4px'}),
+            ], style={'marginBottom': '15px', 'display': 'flex', 'alignItems': 'center'}),
 
             # Command feedback area
-            html.Div(id='command-feedback', style={'color': 'blue', 'marginTop': '10px'})
-        ], id='control-section'),
+            html.Div(id='command-feedback', style={'marginTop': '15px'})
+        ], id='control-section', style={'backgroundColor': '#fff', 'padding': '15px', 'borderRadius': '5px', 'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'}),
 
     ], style={'padding': '20px'})
 
@@ -132,16 +158,33 @@ def get_login_layout():
     A Dash layout for a simple login form.
     """
     layout = html.Div([
-        html.H2("Please Log In", style={'marginTop': '10px'}),
-        html.Label("Username:"),
-        dcc.Input(id='login-username', type='text', placeholder='Username',
-                  style={'display': 'block', 'marginBottom': '6px'}),
-        html.Label("Password:"),
-        dcc.Input(id='login-password', type='password', placeholder='Password',
-                  style={'display': 'block', 'marginBottom': '10px'}),
-        html.Button("Login", id='login-button', n_clicks=0),
-        html.Div(id='login-error-msg', style={'color': 'red', 'marginTop': '10px'}),
-        html.Br(),
-        dcc.Link("Back to Overview", href="/"),
+        html.H2("Please Log In", style={'marginTop': '10px', 'color': '#007bff'}),
+        
+        html.Div([
+            html.Label("Username:", style={'marginBottom': '6px', 'fontWeight': '600'}),
+            dcc.Input(id='login-username', type='text', placeholder='Username',
+                      style={'display': 'block', 'marginBottom': '15px', 'padding': '8px', 'width': '100%', 'borderRadius': '4px', 'border': '1px solid #ccc'}),
+            
+            html.Label("Password:", style={'marginBottom': '6px', 'fontWeight': '600'}),
+            dcc.Input(id='login-password', type='password', placeholder='Password',
+                      style={'display': 'block', 'marginBottom': '20px', 'padding': '8px', 'width': '100%', 'borderRadius': '4px', 'border': '1px solid #ccc'}),
+            
+            html.Button("Login", id='login-button', n_clicks=0, 
+                style={'backgroundColor': '#28a745', 'color': 'white', 'border': 'none', 'padding': '10px 15px', 'borderRadius': '4px', 'cursor': 'pointer', 'width': '100%', 'fontWeight': '600'}),
+            
+            html.Div(id='login-error-msg', style={'marginTop': '10px'}),
+            
+            html.Div([
+                dcc.Link("Back to Overview", href="/", style={'color': '#007bff', 'textDecoration': 'none'})
+            ], style={'marginTop': '20px', 'textAlign': 'center'})
+        ], style={
+            'maxWidth': '400px',
+            'margin': '0 auto',
+            'backgroundColor': '#fff',
+            'padding': '30px',
+            'borderRadius': '8px',
+            'boxShadow': '0 4px 6px rgba(0,0,0,0.1)'
+        })
     ], style={'padding': '20px'})
+    
     return layout
