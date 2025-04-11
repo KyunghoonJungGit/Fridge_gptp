@@ -3,39 +3,50 @@
 Contains Dash callback definitions for:
 - Updating the multi-fridge overview data table
 - Updating the fridge detail page (graphs, readings)
-- Handling command button clicks (e.g., toggling the pulse tube, compressor, valves, etc.)
+- Handling command button clicks (e.g. toggles)
+- Authenticating user login and controlling UI based on login state
 
 Key features:
 1. init_callbacks(app): central function to wire up all callbacks
-2. update_overview_table(...): updates the overview table periodically
-3. update_detail_page(...): updates the detail page graph and readings
-4. handle_fridge_commands(...): processes button clicks for toggles or set_channel commands
+2. update_overview_table(): updates multi-fridge overview data
+3. update_detail_page(): updates detail page graph + readings
+4. handle_fridge_commands(): executes backend commands
+5. login_callback(): checks username/password, sets Flask session
+6. hide_controls_if_not_logged_in(): hides control widgets if user is not logged in
 
 @dependencies
-- dash for Input, Output, State
+- dash for Input, Output, State, callback_context
 - plotly for building graphs
-- backend.data_acquisition.fridge_reader to fetch data
-- backend.controllers.command_controller to execute commands
+- backend.data_acquisition.fridge_reader
+- backend.controllers.command_controller for toggling states
+- flask.session for server-side session
+- A minimal "fake" user database (USERNAME_PASSWORD) for demonstration
 
 @notes
-- The new callback handle_fridge_commands is triggered by multiple Input components (button clicks).
-  We identify which button fired using dash.callback_context and proceed accordingly.
-- For demonstration, the code uses a mock time series for the temperature graph; in production,
-  we'd query InfluxDB or another data source for historical data.
+- In production, you'd replace USERNAME_PASSWORD with a real user database or hashed credential store.
+- This is a minimal demonstration of how you might restrict parts of the UI to logged-in users.
 """
 
-from dash import Input, Output, State, html
-import dash_core_components as dcc
+from dash import Input, Output, State, html, no_update, dcc
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
+import flask
 
 from backend.data_acquisition import fridge_reader
 from backend.controllers.command_controller import execute_command
 
+# A minimal demonstration user "database"
+USERNAME_PASSWORD = {
+    "admin": "adminpw",
+    "labuser": "labpass"
+}
 
 def init_callbacks(app):
-    """Register all callbacks for both overview and detail pages."""
+    """Register all callbacks for both overview, detail pages, command handling, and login."""
 
+    # ---------------------------
+    # Multi-fridge overview table
+    # ---------------------------
     @app.callback(
         Output('fridge-overview-table', 'children'),
         Input('poll-interval', 'n_intervals')
@@ -45,7 +56,7 @@ def init_callbacks(app):
         Periodically update the multi-fridge overview table.
         
         :param _: The current interval tick (unused).
-        :return: The updated table rows with fridge info.
+        :return: Updated table rows with fridge info.
         """
         fridge_ids = fridge_reader.get_fridge_ids()
 
@@ -91,6 +102,9 @@ def init_callbacks(app):
 
         return table_header + table_rows
 
+    # ---------------------------
+    # Fridge detail page updates
+    # ---------------------------
     @app.callback(
         [Output('temp-history-graph', 'figure'),
          Output('latest-readings', 'children')],
@@ -117,7 +131,10 @@ def init_callbacks(app):
         now = datetime.now()
         times = [now - timedelta(minutes=i) for i in range(30, -1, -1)]
         # Start from the current mix chamber reading and vary it slightly over 30 data points
-        mix_current = float(latest['sensor_status'].get('mix_chamber', 300.0))
+        try:
+            mix_current = float(latest['sensor_status'].get('mix_chamber', 300.0))
+        except ValueError:
+            mix_current = 300.0
         temps = [mix_current + (i * 0.05) for i in range(31)]
 
         # Create temperature history graph
@@ -151,6 +168,9 @@ def init_callbacks(app):
 
         return fig, readings_table
 
+    # ---------------------------
+    # Handle user commands
+    # ---------------------------
     @app.callback(
         Output('command-feedback', 'children'),
         [
@@ -178,17 +198,7 @@ def init_callbacks(app):
     ):
         """
         Handle user interactions with command buttons on the detail page.
-        We figure out which button was pressed by checking the changed_id from dash.callback_context.
-
-        :param pulsetube_clicks: # times "Toggle Pulsetube" was clicked
-        :param compressor_clicks: # times "Toggle Compressor" was clicked
-        :param turbo_clicks: # times "Toggle Turbo" was clicked
-        :param valve_clicks: # times "Toggle Valve" was clicked
-        :param heat_switch_clicks: # times "Toggle Heat Switch" was clicked
-        :param valve_name: the user-entered valve name
-        :param heat_switch_name: the user-entered heat switch name
-        :param fridge_id: which fridge to control
-        :return: a string message about success or failure of the command
+        Identify which button was pressed and execute the corresponding fridge command.
         """
         from dash import callback_context
 
@@ -200,7 +210,7 @@ def init_callbacks(app):
         if callback_context.triggered:
             triggered_id = callback_context.triggered[0]['prop_id'].split('.')[0]
 
-        # If no button was actually clicked or there's no triggered_id, do nothing
+        # If no button was actually clicked, do nothing
         if not triggered_id:
             return ""
 
@@ -229,5 +239,53 @@ def init_callbacks(app):
             ok = execute_command(fridge_id, "toggle_heat_switch", {"heat_switch_name": heat_switch_name})
             return f"Heat switch '{heat_switch_name}' toggled." if ok else f"Failed to toggle heat switch '{heat_switch_name}'."
 
-        # Default (shouldn't happen)
         return ""
+
+    # ---------------------------
+    # Simple login mechanism
+    # ---------------------------
+    @app.callback(
+        [Output('login-error-msg', 'children'),
+         Output('url', 'pathname')],
+        [Input('login-button', 'n_clicks')],
+        [State('login-username', 'value'),
+         State('login-password', 'value')]
+    )
+    def login_callback(n_clicks, username, password):
+        """
+        Check credentials and set flask.session['logged_in'] if valid.
+        If invalid, show error. On success, redirect to the multi-fridge overview.
+        """
+        if n_clicks is None or n_clicks == 0:
+            # No login attempt yet
+            return "", no_update
+
+        if not username or not password:
+            return "Please enter username and password.", no_update
+
+        # Check credentials
+        stored_pw = USERNAME_PASSWORD.get(username)
+        if stored_pw and stored_pw == password:
+            # Valid credentials
+            flask.session['logged_in'] = True
+            return "", "/"  # redirect to overview
+        else:
+            return "Invalid username or password.", no_update
+
+    # ---------------------------
+    # Hide/disable controls if not logged in
+    # ---------------------------
+    @app.callback(
+        Output('control-section', 'style'),
+        Input('hidden-fridge-id', 'children')
+    )
+    def hide_controls_if_not_logged_in(_):
+        """
+        If user is not logged in, hide the entire control section. 
+        Otherwise, show it. We rely on Flask session to check login status.
+        """
+        if not flask.session.get('logged_in', False):
+            # Hide it
+            return {'display': 'none'}
+        # Show it
+        return {'display': 'block'}

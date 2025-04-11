@@ -3,22 +3,21 @@
 Defines the Dash layouts for the Fridge Monitoring dashboard, including:
 - A multi-fridge overview page
 - A fridge detail page with graphs, info, and command buttons
+- A login page for user authentication
 
 Key features:
-1. get_overview_layout(): Displays a table listing all fridges, their key readings, and a link to each detail page.
-2. get_fridge_detail_layout(): Shows:
-   - Real-time data graphs
-   - Latest readings
-   - Control widgets (buttons, inputs) to issue commands to the backend
+1. get_overview_layout(): A table listing all fridges, their key readings, and a link to each detail page.
+2. get_fridge_detail_layout(fridge_id): Detailed real-time data (graphs, readings) + command widgets.
+3. get_login_layout(): Simple username/password form, with a "login-button" to trigger a login callback.
 
 @dependencies
-- dash, dash.html, dash.dcc: for building the Dash UI
+- dash, dash.html, dash.dcc for building the Dash UI
 - Python code from the rest of the backend for actual data handling
+- The login logic will be implemented in callbacks.py
 
 @notes
-- The new command widgets allow toggling major components (pulse tube, compressor, turbo)
-  and also allow toggling valves and heat switches with user-provided names.
-- Layout is kept simple with minimal styling.
+- The login form is minimal. In a real system, you'd use hashed passwords and proper security measures.
+- The detail page shows controls only if user is logged in (enforced by routes and session checks).
 """
 
 from dash import html, dcc
@@ -26,7 +25,6 @@ from dash import html, dcc
 
 def get_overview_layout():
     """Return the Dash layout for the multi-fridge overview screen."""
-
     layout = html.Div([
         html.H2("Multi-Fridge Overview"),
         html.P("Below is a list of all active fridges with their latest temperature, pressure, and status."),
@@ -34,8 +32,11 @@ def get_overview_layout():
         html.Table(
             id='fridge-overview-table',
             style={'border': '1px solid #ccc', 'width': '100%', 'borderCollapse': 'collapse'},
-            children=[]  # Initial empty children, will be updated by callbacks
+            children=[]  # Updated by callbacks
         ),
+        html.Br(),
+        # If not logged in, user can navigate to login
+        dcc.Link("Login", href="/login", style={'marginRight': '20px'}),
     ], style={'padding': '20px'})
     return layout
 
@@ -46,7 +47,7 @@ def get_fridge_detail_layout(fridge_id: str):
     Includes:
     - Graphs for real-time or historical data
     - Latest readings
-    - UI controls to send commands to the fridge
+    - UI controls to send commands to the fridge (only functional if logged in)
     """
 
     layout = html.Div([
@@ -71,7 +72,7 @@ def get_fridge_detail_layout(fridge_id: str):
             html.H3("Temperature History"),
             dcc.Graph(
                 id='temp-history-graph',
-                figure={}  # Initial empty figure
+                figure={}  # Updated by callback
             ),
         ], style={'marginBottom': '20px'}),
 
@@ -81,7 +82,8 @@ def get_fridge_detail_layout(fridge_id: str):
             html.Div(id='latest-readings', children=[])
         ], style={'marginBottom': '20px'}),
 
-        # Command/Control section
+        # Command/Control section (shown if logged in)
+        # We'll store the style in a Div with an ID to hide/disable if needed
         html.Div([
             html.H3("Fridge Controls"),
 
@@ -108,7 +110,28 @@ def get_fridge_detail_layout(fridge_id: str):
 
             # Command feedback area
             html.Div(id='command-feedback', style={'color': 'blue', 'marginTop': '10px'})
-        ])
+        ], id='control-section'),  # We'll update this div's style in callbacks to hide if not logged in
+
+    ], style={'padding': '20px'})
+
+    return layout
+
+
+def get_login_layout():
+    """
+    Returns a Dash layout for a simple login form.
+    The user enters username, password, and clicks "Login" to trigger a callback.
+    """
+    layout = html.Div([
+        html.H2("Please Log In"),
+        html.Label("Username:"),
+        dcc.Input(id='login-username', type='text', placeholder='Username', style={'display': 'block'}),
+        html.Label("Password:"),
+        dcc.Input(id='login-password', type='password', placeholder='Password', style={'display': 'block', 'marginBottom': '10px'}),
+        html.Button("Login", id='login-button', n_clicks=0),
+        html.Div(id='login-error-msg', style={'color': 'red', 'marginTop': '10px'}),
+        html.Br(),
+        dcc.Link("Back to Overview", href="/"),
     ], style={'padding': '20px'})
 
     return layout
