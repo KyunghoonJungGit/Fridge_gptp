@@ -78,7 +78,7 @@ if __name__ == "__main__":
             logging.warning("SSL_CERT_FILE or SSL_KEY_FILE path is invalid. Falling back to HTTP.")
 
     # Run the Dash server (HTTPS if ssl_context is set, otherwise HTTP)
-    app.run_server(
+    app.run(
         debug=dash_debug,
         host=dash_host,
         port=dash_port,
