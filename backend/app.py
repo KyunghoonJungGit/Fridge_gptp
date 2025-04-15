@@ -1,33 +1,24 @@
 """
 @description
 Main entry point for the Fridge Monitoring Dash/Flask application.
-Includes:
-- Dash-based pages and callbacks for the web UI
-- New API endpoints for remote fridge data retrieval and commands
 
 Key features:
-1. Dash routes: (/, /login, /fridge/<id>)
+1. Dash-based pages and callbacks for the web UI
 2. Periodic polling callback to gather updated fridge data
-3. Two new JSON API endpoints:
+3. Two JSON API endpoints:
    - GET /api/fridge/<fridge_id>/latest
    - POST /api/fridge/<fridge_id>/command
-4. Flask session-based login for web UI (not strictly required for the new API)
+4. Flask session-based login for the web UI
 
 @dependencies
 - dash, dash.html, dash.dcc for the Dash UI
 - flask for serving requests, managing sessions
-- requests library is not used here (the client library uses requests)
+- requests library (not used here directly, but used by the client library)
 - backend.data_acquisition.fridge_reader for fridge data
 - backend.controllers.command_controller for commands
 
 @notes
-- The new JSON endpoints allow external scripts or the python_client library
-  to get the latest fridge info and send commands remotely.
-- No authentication is enforced for these endpoints in this minimal example.
-"""
-"""
-@description
-Main entry point for the Fridge Monitoring Dash/Flask application.
+No authentication is strictly required for the JSON endpoints in this minimal example.
 """
 
 import dash

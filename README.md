@@ -84,13 +84,10 @@ In this setup, the Dash/Flask app runs internally on HTTP (0.0.0.0:8050), and Ng
 Additional Configuration
 Environment Variables:
 
-FLASK_SECRET_KEY: A strong secret key used to sign session cookies.
-
-INFLUXDB_URL, INFLUXDB_TOKEN, INFLUXDB_ORG, INFLUXDB_BUCKET: For InfluxDB connectivity.
-
-DASH_SERVER_HOST, DASH_SERVER_PORT, DASH_DEBUG: Control how the Dash server runs.
-
-SSL_CERT_FILE, SSL_KEY_FILE: (Optional) For direct HTTPS with Flask.
+* `FLASK_SECRET_KEY`: A strong secret key used by Flask (set in `run_server.py`) to secure session cookies.
+* `INFLUXDB_URL, INFLUXDB_TOKEN, INFLUXDB_ORG, INFLUXDB_BUCKET`: For InfluxDB connectivity.
+* `DASH_SERVER_HOST, DASH_SERVER_PORT, DASH_DEBUG`: Control how the Dash server runs.
+* `SSL_CERT_FILE, SSL_KEY_FILE`: (Optional) For direct HTTPS with Flask.
 
 Contributing
 Contributions are welcome. Fork this repository, make changes, and submit a pull request.
