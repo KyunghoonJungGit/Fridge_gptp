@@ -129,49 +129,63 @@ def init_callbacks(app):
     @app.callback(
         [Output('temp-history-graph', 'figure'),
          Output('latest-readings', 'children')],
-        [
-            Input('detail-interval', 'n_intervals'),
-            Input('hidden-fridge-id', 'children'),
-            Input('theme-store', 'data')  # <-- add the theme store as input
-        ]
+        [Input('detail-interval', 'n_intervals'),
+         Input('hidden-fridge-id', 'children'),
+         Input('theme-store', 'data')]
     )
     def update_detail_page(_, fridge_id, current_theme):
         if not fridge_id:
             return {}, html.P("No fridge selected")
 
+        # Pull the *latest* polled dict from memory for the right‑hand table
         latest = get_latest_data(fridge_id)
         if not latest:
             return {}, html.P("No data available")
 
-        # Build a simple mock time series
-        now = datetime.now()
-        times = [now - timedelta(minutes=i) for i in range(30, -1, -1)]
-        try:
-            mix_current = float(latest['sensor_status'].get('mix_chamber', 300.0))
-        except ValueError:
-            mix_current = 300.0
-        temps = [mix_current + (i * 0.05) for i in range(31)]
+        # ---- NEW PART: fetch real history from InfluxDB -----------------
+        from backend.db.influx_connector import query_data   # local import to avoid circulars
 
-        # Decide background colors based on theme
-        if current_theme == "dark-theme":
-            paper_bg = "#1e1e1e"
-            plot_bg = "#2b2b2b"
-            font_col = "#f0f0f0"
+        flux = f'''
+        from(bucket: "my-bucket")             // or os.getenv("INFLUXDB_BUCKET")
+          |> range(start: -30m)
+          |> filter(fn: (r) => r._measurement == "fridge_data")
+          |> filter(fn: (r) => r.fridge_id == "{fridge_id}")
+          |> filter(fn: (r) => r._field == "temp_chA")      // plot channel A
+          |> keep(columns: ["_time", "_value"])
+          |> sort(columns: ["_time"])
+        '''
+        rows = query_data(flux)
+
+        if rows:
+            times = [r["time"] for r in rows]
+            temps = [r["_value"] for r in rows]
         else:
-            paper_bg = "#f8f9fa"
-            plot_bg = "#ffffff"
-            font_col = "#333333"
+            # Fallback to single current reading
+            now = datetime.now()
+            try:
+                mix_current = float(latest['sensor_status'].get('mix_chamber', 300.0))
+            except ValueError:
+                mix_current = 300.0
+            times = [now]
+            temps = [mix_current]
+        # -----------------------------------------------------------------
+
+        # Theme‑colours (unchanged)
+        paper_bg, plot_bg, font_col = (
+            ("#1e1e1e", "#2b2b2b", "#f0f0f0") if current_theme == "dark-theme"
+            else ("#f8f9fa", "#ffffff", "#333333")
+        )
 
         fig = go.Figure()
         fig.add_trace(go.Scatter(
             x=times,
             y=temps,
             mode='lines+markers',
-            name='Mock Temperature Channel',
+            name='Mix‑Chamber (chA)',
             line=dict(color='#007bff')
         ))
         fig.update_layout(
-            title=f"Temperature History - {fridge_id}",
+            title=f"Temperature History – {fridge_id}",
             xaxis_title="Time",
             yaxis_title="Temperature (K)",
             hovermode="x unified",
@@ -180,15 +194,11 @@ def init_callbacks(app):
             font=dict(color=font_col)
         )
 
-        # Build the "Latest Readings" table
-        sensor_rows = []
-        sensor_status = latest.get('sensor_status', {})
-        for k, v in sensor_status.items():
-            sensor_rows.append(html.Tr([html.Td(k), html.Td(str(v))]))
-
-        sensor_rows.append(
-            html.Tr([html.Td("State"), html.Td(latest.get('state_message', 'N/A'))])
-        )
+        # Latest‑readings table (unchanged)
+        sensor_rows = [html.Tr([html.Td(k), html.Td(str(v))])
+                       for k, v in latest.get('sensor_status', {}).items()]
+        sensor_rows.append(html.Tr([html.Td("State"),
+                                    html.Td(latest.get('state_message', 'N/A'))]))
 
         readings_table = html.Table(
             [html.Tr([html.Th("Sensor"), html.Th("Value")])] + sensor_rows,
