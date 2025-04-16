@@ -31,7 +31,8 @@ import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import flask
 
-from backend.data_acquisition import fridge_reader
+# Import functions from app.py instead of the removed fridge_reader module
+from backend.app import get_fridge_ids, get_latest_data, poll_all_fridges, pop_all_alerts
 from backend.controllers.command_controller import execute_command
 
 USERNAME_PASSWORD = {
@@ -49,7 +50,7 @@ def init_callbacks(app):
         Input('poll-interval', 'n_intervals')
     )
     def update_overview_table_and_alerts(_):
-        fridge_ids = fridge_reader.get_fridge_ids()
+        fridge_ids = get_fridge_ids()
 
         table_header = html.Tr([
             html.Th("Fridge ID"),
@@ -61,7 +62,7 @@ def init_callbacks(app):
 
         table_rows = []
         for fid in fridge_ids:
-            latest = fridge_reader.get_latest_data(fid)
+            latest = get_latest_data(fid)
             if not latest:
                 row = html.Tr([
                     html.Td(_colored_fridge_id(fid, "badge-red")),
@@ -104,7 +105,7 @@ def init_callbacks(app):
             table_rows.append(row)
 
         # Check for new alerts
-        all_alerts = fridge_reader.pop_all_alerts()
+        all_alerts = pop_all_alerts()
         if all_alerts:
             alert_content = [html.H4("⚠️ New Alerts")]
             for afid, alerts in all_alerts.items():
@@ -138,7 +139,7 @@ def init_callbacks(app):
         if not fridge_id:
             return {}, html.P("No fridge selected")
 
-        latest = fridge_reader.get_latest_data(fridge_id)
+        latest = get_latest_data(fridge_id)
         if not latest:
             return {}, html.P("No data available")
 
