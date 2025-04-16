@@ -3,23 +3,18 @@
 Main entry point for the Fridge Monitoring Dash/Flask application.
 
 Key features:
-1. Dash-based pages and callbacks for the web UI
-2. Periodic polling callback to gather updated fridge data
-3. Two JSON API endpoints:
-   - GET /api/fridge/<fridge_id>/latest
-   - POST /api/fridge/<fridge_id>/command
-4. Flask session-based login for the web UI
+- Creates the Dash instance and sets up the layout
+- Defines the background polling callback
+- Exposes the JSON API endpoints
+- Avoids direct fridge logic; uses 'fridge_state.py' for that
 
 @dependencies
-- dash, dash.html, dash.dcc for the Dash UI
-- flask for serving requests, managing sessions
-- requests library (not used here directly, but used by the client library)
-- backend.fridge_api.real_fridge for RealFridge API
+- dash, flask for the web app
+- backend.fridge_state for fridge data/polling
 - backend.controllers.command_controller for commands
-
+- frontend.layouts, frontend.callbacks for the UI
 @notes
-No authentication is strictly required for the JSON endpoints in this minimal example.
-After Step 1-4 migration, we're now using RealFridge API instead of the dummy fridge.
+- No circular import with callbacks now because we only import 'init_callbacks'
 """
 
 import dash
@@ -27,12 +22,13 @@ from dash import html, dcc
 from dash.dependencies import Input, Output
 import flask
 from flask import request, jsonify
-from datetime import datetime
-import threading
-import time
 
-# Import our new RealFridge class instead of the old fridge_reader module
-from backend.fridge_api.real_fridge import RealFridge
+from backend.fridge_state import (
+    get_fridge_ids,
+    get_latest_data,
+    poll_all_fridges,
+    pop_all_alerts
+)
 from frontend.layouts import (
     get_overview_layout,
     get_fridge_detail_layout,
@@ -41,37 +37,7 @@ from frontend.layouts import (
 from frontend.callbacks import init_callbacks
 from backend.controllers.command_controller import execute_command
 
-# Dictionary to store the latest data from each fridge
-_latest_data = {}
-# Dictionary to store newly generated alerts per fridge
-_latest_alerts = {}
 
-# Define our available fridges - in a real implementation you might load this from config
-AVAILABLE_FRIDGES = ['fridge_1', 'fridge_2']
-
-# Function to get all available fridge IDs
-def get_fridge_ids():
-    return AVAILABLE_FRIDGES
-
-# Function to get latest data for a specific fridge
-def get_latest_data(fridge_id):
-    return _latest_data.get(fridge_id, {})
-
-# Function to poll all fridges for their current data
-def poll_all_fridges():
-    for fridge_id in AVAILABLE_FRIDGES:
-        try:
-            fridge = RealFridge(fridge_id)
-            data = fridge.get_current_data()
-            _latest_data[fridge_id] = data
-        except Exception as e:
-            print(f"Error polling fridge {fridge_id}: {e}")
-
-# Function to get and clear all accumulated alerts
-def pop_all_alerts():
-    alerts_copy = _latest_alerts.copy()
-    _latest_alerts.clear()
-    return alerts_copy
 
 app = dash.Dash(__name__, suppress_callback_exceptions=True)
 server = app.server  # Expose the Flask server for session handling

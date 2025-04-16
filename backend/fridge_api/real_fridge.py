@@ -136,24 +136,48 @@ class RealFridge:
 
     def get_current_data(self) -> Dict[str, Any]:
         """
-        Return a dictionary of current data (temperatures, pressures) from all available channels.
-        Similar to the old get_current_data in fridge_reader.py, but adapted for the real fridge.
+        Return a dictionary structured exactly how the Dash UI expects, 
+        i.e. with 'sensor_status' and 'last_pressures_mbar' keys. 
+        We'll fake 'mix_chamber' from channel A, and gather all channel pressures.
         
         :return: A dictionary with relevant information about the fridge's current state and sensor readings.
         """
-        # In a real implementation, you would collect all relevant data from the fridge
-        # Channels might be defined as configuration or discovered from the real API
-        
-        # Example structure that mimics the old format but with real data
-        data_snapshot = {
-            "fridge_id": self.fridge_id,
-            "timestamp": datetime.now().isoformat(),
-            "channels": {
-                "A": {"temp": self.get_temp("A"), "pres": self.get_pres("A")},
-                "B": {"temp": self.get_temp("B"), "pres": self.get_pres("B")},
-                # Add more channels as needed
-            },
-            "state_message": f"Fridge {self.fridge_id} is operational"
-        }
-        
-        return data_snapshot
+        # Suppose we have channels A and B
+        try:
+            tempA = self.get_temp("A")
+            tempB = self.get_temp("B")
+            presA = self.get_pres("A")
+            presB = self.get_pres("B")
+
+            data_snapshot = {
+                "fridge_id": self.fridge_id,
+                "timestamp": datetime.now().isoformat(),
+                # The UI looks under "sensor_status" for "mix_chamber":
+                "sensor_status": {
+                    "mix_chamber": f"{tempA:.3f}",   # show channel A's temp as 'mix_chamber'
+                    "channel_A": f"{tempA:.3f}",     # additional channels if needed
+                    "channel_B": f"{tempB:.3f}",
+                    # You could add more sensors here if the UI references them
+                },
+                # The UI looks under "last_pressures_mbar" for a list of gauge readings:
+                "last_pressures_mbar": [presA, presB],
+                # The old code also references "state_message"
+                "state_message": f"Fridge {self.fridge_id} is operational",
+                # We'll also keep the new channels structure for future use
+                "channels": {
+                    "A": {"temp": tempA, "pres": presA},
+                    "B": {"temp": tempB, "pres": presB},
+                }
+            }
+            return data_snapshot
+        except Exception as e:
+            logger.error(f"[RealFridge] Error getting current data: {str(e)}")
+            # Return minimal data structure to avoid UI crashes
+            return {
+                "fridge_id": self.fridge_id,
+                "timestamp": datetime.now().isoformat(),
+                "sensor_status": {"mix_chamber": "N/A"},
+                "last_pressures_mbar": [],
+                "state_message": f"Error reading fridge {self.fridge_id}: {str(e)}",
+                "channels": {}
+            }

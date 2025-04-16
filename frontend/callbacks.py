@@ -2,28 +2,23 @@
 @description
 Contains Dash callback definitions for updating the multi-fridge overview table,
 the fridge detail page, handling user commands, and the login mechanism.
-Now updated in Step 4 to handle "set_temp" and "set_resist" commands
-instead of old toggles.
 
 Key features:
-1. update_overview_table_and_alerts(): builds a stylized table with badges.
-2. update_detail_page(): updates the detail page's graph and readings.
-3. handle_fridge_commands(): calls the new "set_temp" / "set_resist" commands via command_controller.
-4. login_callback(): verifies credentials and sets session state.
-5. hide_controls_if_not_logged_in(): toggles the control UI visibility.
-6. theme toggling callbacks for dark/light modes.
+1. update_overview_table_and_alerts(): builds a stylized table
+2. update_detail_page(): updates detail page with a mock time series
+3. handle_fridge_commands(): sets temperature/resistance
+4. login_callback(): verifies credentials
+5. hide_controls_if_not_logged_in(): toggles the control UI
+6. theme toggling callbacks
 
 @dependencies
-- dash for Input, Output, State, callback_context
-- plotly for building graphs
-- backend.data_acquisition.fridge_reader for data retrieval (still used for basic status)
-- backend.controllers.command_controller for "set_temp", "set_resist"
-- flask.session for server-side session
-- The new style classes from assets/style.css
+- dash for the UI
+- backend.fridge_state for fridge data (instead of backend.app)
+- backend.controllers.command_controller for set_temp/set_resist commands
+- flask for sessions
 
 @notes
-- We removed references to old toggles ("toggle_pulsetube", "toggle_valve", etc.)
-- Now we have "Set Temperature" and "Set Resistance" buttons, each requiring channel+value
+- No more circular import with app.py
 """
 
 from dash import Input, Output, State, html, no_update, dcc, callback_context
@@ -31,8 +26,13 @@ import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import flask
 
-# Import functions from app.py instead of the removed fridge_reader module
-from backend.app import get_fridge_ids, get_latest_data, poll_all_fridges, pop_all_alerts
+# Import from fridge_state instead of backend.app
+from backend.fridge_state import (
+    get_fridge_ids,
+    get_latest_data,
+    poll_all_fridges,
+    pop_all_alerts
+)
 from backend.controllers.command_controller import execute_command
 
 USERNAME_PASSWORD = {
