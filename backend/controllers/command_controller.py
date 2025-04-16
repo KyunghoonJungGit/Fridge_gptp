@@ -1,97 +1,78 @@
 """ 
 @description
 Defines a command controller that accepts fridge ID, command name, and parameters,
-then invokes the corresponding methods on the DummyBlueforsSlave instance.
+then invokes the corresponding methods on the RealFridge instance.
 
 Key features:
-- Accept a command string (e.g. "toggle_compressor", "set_channel") and optional params
-- Find the correct fridge instance and call the associated method
-- Log command execution to InfluxDB for auditing
+- Accept a command string (e.g. "set_temp", "set_resist") and optional params
+- Instantiate RealFridge(fridge_id) and call the associated method
+- Log command execution to InfluxDB for auditing (if desired)
 
 @dependencies
-- backend.data_acquisition.fridge_reader (to get DummyBlueforsSlave instances)
+- backend.fridge_api.real_fridge (to get RealFridge instances)
 - backend.db.influx_connector (for optional command logging)
 - backend.utils.logger (shared logger)
 
 @notes
-- If the command is unknown or if required params are missing, we log an error and return False
-- For "set_channel", we expect `params` to contain "channel" and "value"
-- For "toggle_valve" or "toggle_heat_switch", we expect `params` to contain the valve or switch name
+- We no longer handle old toggle commands like "toggle_valve" or "toggle_compressor."
+- For "set_temp", we expect `params` to contain "channel" (e.g. "A") and "value" (the setpoint)
+- For "set_resist", we expect `params` to contain "channel" and "value"
 """
 
 from datetime import datetime
 from typing import Any, Dict, Optional
 
 from backend.utils.logger import get_logger
-from backend.data_acquisition.fridge_reader import get_fridge_instance
 from backend.db.influx_connector import write_data
+from backend.fridge_api.real_fridge import RealFridge
 
 logger = get_logger(__name__)
 
 def execute_command(fridge_id: str, command: str, params: Optional[Dict[str, Any]] = None) -> bool:
     """
-    Execute a specified command on the given fridge.
+    Execute a specified command on the given fridge via the RealFridge API.
 
     :param fridge_id: The unique ID of the fridge (e.g. 'fridge_1')
-    :param command: The command to execute (e.g., "toggle_compressor", "toggle_valve")
-    :param params: Optional dictionary of extra parameters (e.g., {"valve_name": "v5"})
+    :param command: The command to execute (e.g., "set_temp", "set_resist")
+    :param params: Optional dictionary of extra parameters (e.g., {"channel": "A", "value": 4.2})
     :return: True if command executed successfully, otherwise False.
-    :raises KeyError or ValueError: If the fridge_id is invalid or the command is malformed.
+    :raises KeyError or ValueError: If missing expected params or unknown command.
     """
     if params is None:
         params = {}
 
-    # Retrieve the fridge instance
-    try:
-        fridge = get_fridge_instance(fridge_id)
-    except KeyError as e:
-        logger.error("[command_controller] Unknown fridge_id='%s': %s", fridge_id, e)
-        return False
+    # Instantiate the real fridge wrapper
+    fridge = RealFridge(fridge_id)
 
-    # Command routing
-    command = command.strip().lower()
+    # Sanitize command
+    cmd_lower = command.strip().lower()
     success = False
 
     try:
-        if command == "toggle_compressor":
-            fridge.toggle_compressor()
-            success = True
-
-        elif command == "toggle_pulsetube":
-            fridge.toggle_pulsetube()
-            success = True
-
-        elif command == "toggle_turbo":
-            fridge.toggle_turbo()
-            success = True
-
-        elif command == "toggle_valve":
-            valve_name = params.get("valve_name")
-            if not valve_name:
-                logger.error("[command_controller] Missing 'valve_name' param for toggle_valve.")
-            else:
-                fridge.toggle_valve(valve_name)
-                success = True
-
-        elif command == "toggle_heat_switch":
-            hs_name = params.get("heat_switch_name")
-            if not hs_name:
-                logger.error("[command_controller] Missing 'heat_switch_name' param for toggle_heat_switch.")
-            else:
-                fridge.toggle_heat_switch(hs_name)
-                success = True
-
-        elif command == "set_channel":
+        if cmd_lower == "set_temp":
+            # Expect 'channel' and 'value' in params
             ch_name = params.get("channel")
             val = params.get("value")
-            if (ch_name is None) or (val is None):
-                logger.error("[command_controller] Missing 'channel' or 'value' param for set_channel.")
+            if ch_name is None or val is None:
+                logger.error("[command_controller] Missing 'channel' or 'value' param for set_temp.")
             else:
-                fridge.set_channel(ch_name, val)
+                # Convert val to float if needed
+                float_val = float(val)
+                fridge.set_temp(ch_name, float_val)
+                success = True
+
+        elif cmd_lower == "set_resist":
+            ch_name = params.get("channel")
+            val = params.get("value")
+            if ch_name is None or val is None:
+                logger.error("[command_controller] Missing 'channel' or 'value' param for set_resist.")
+            else:
+                float_val = float(val)
+                fridge.set_resist(ch_name, float_val)
                 success = True
 
         else:
-            logger.error("[command_controller] Unknown command='%s'.", command)
+            logger.error("[command_controller] Unknown command='%s'.", cmd_lower)
 
     except Exception as ex:
         logger.exception("[command_controller] Error executing command='%s': %s", command, ex)
