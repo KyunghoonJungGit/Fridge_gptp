@@ -1,33 +1,29 @@
-"""
+""" 
 @description
 Contains Dash callback definitions for updating the multi-fridge overview table,
 the fridge detail page, handling user commands, and the login mechanism.
-Now updated to include minimal color-coded badges next to fridge IDs
-and color-coded temperature statuses.
+Now updated in Step 4 to handle "set_temp" and "set_resist" commands
+instead of old toggles.
 
 Key features:
 1. update_overview_table_and_alerts(): builds a stylized table with badges.
 2. update_detail_page(): updates the detail page's graph and readings.
-3. handle_fridge_commands(): toggles fridge states via command_controller.
+3. handle_fridge_commands(): calls the new "set_temp" / "set_resist" commands via command_controller.
 4. login_callback(): verifies credentials and sets session state.
 5. hide_controls_if_not_logged_in(): toggles the control UI visibility.
-6. NEW: theme toggling callbacks for dark/light modes.
+6. theme toggling callbacks for dark/light modes.
 
 @dependencies
 - dash for Input, Output, State, callback_context
 - plotly for building graphs
-- backend.data_acquisition.fridge_reader for data retrieval
-- backend.controllers.command_controller for toggles
+- backend.data_acquisition.fridge_reader for data retrieval (still used for basic status)
+- backend.controllers.command_controller for "set_temp", "set_resist"
 - flask.session for server-side session
 - The new style classes from assets/style.css
 
 @notes
-- We add a small color-coded badge near the fridge ID. If the fridge is 'fridge_1',
-  we might choose a green or blue badge; for 'fridge_2', we might show a different color
-  or use it to reflect some condition. (For demo, we just use a color-coded approach
-  based on fridge index or temperature.)
-- We also color the temperature reading if < 300K (badge-green) or >= 300K (badge-red).
-- Additional callbacks at bottom for toggling dark/light theme.
+- We removed references to old toggles ("toggle_pulsetube", "toggle_valve", etc.)
+- Now we have "Set Temperature" and "Set Resistance" buttons, each requiring channel+value
 """
 
 from dash import Input, Output, State, html, no_update, dcc, callback_context
@@ -170,7 +166,7 @@ def init_callbacks(app):
             x=times,
             y=temps,
             mode='lines+markers',
-            name='Mix Chamber Temperature',
+            name='Mock Temperature Channel',
             line=dict(color='#007bff')
         ))
         fig.update_layout(
@@ -202,28 +198,30 @@ def init_callbacks(app):
     @app.callback(
         Output('command-feedback', 'children'),
         [
-            Input('toggle-pulsetube-btn', 'n_clicks'),
-            Input('toggle-compressor-btn', 'n_clicks'),
-            Input('toggle-turbo-btn', 'n_clicks'),
-            Input('toggle-valve-btn', 'n_clicks'),
-            Input('toggle-heat-switch-btn', 'n_clicks')
+            Input('set-temp-btn', 'n_clicks'),
+            Input('set-resist-btn', 'n_clicks')
         ],
         [
-            State('valve-name-input', 'value'),
-            State('heat-switch-name-input', 'value'),
+            State('temp-channel-input', 'value'),
+            State('temp-value-input', 'value'),
+            State('resist-channel-input', 'value'),
+            State('resist-value-input', 'value'),
             State('hidden-fridge-id', 'children')
         ]
     )
     def handle_fridge_commands(
-        pulsetube_clicks,
-        compressor_clicks,
-        turbo_clicks,
-        valve_clicks,
-        heat_switch_clicks,
-        valve_name,
-        heat_switch_name,
+        set_temp_clicks,
+        set_resist_clicks,
+        temp_channel,
+        temp_value,
+        resist_channel,
+        resist_value,
         fridge_id
     ):
+        """
+        Called when user presses "Set Temperature" or "Set Resistance" button.
+        We pass channel & value to the command_controller with command= "set_temp" or "set_resist".
+        """
         if not fridge_id:
             return "No fridge selected, cannot send commands."
 
@@ -235,29 +233,18 @@ def init_callbacks(app):
         if not triggered_id:
             return ""
 
-        if triggered_id == 'toggle-pulsetube-btn':
-            ok = execute_command(fridge_id, "toggle_pulsetube")
-            return "Pulsetube toggled successfully." if ok else "Failed to toggle pulsetube."
+        if triggered_id == 'set-temp-btn':
+            if not temp_channel or not temp_value:
+                return "Please enter channel and temperature value."
+            # Attempt command
+            result = execute_command(fridge_id, "set_temp", {"channel": temp_channel, "value": temp_value})
+            return "Temperature set successfully." if result else "Failed to set temperature."
 
-        elif triggered_id == 'toggle-compressor-btn':
-            ok = execute_command(fridge_id, "toggle_compressor")
-            return "Compressor toggled successfully." if ok else "Failed to toggle compressor."
-
-        elif triggered_id == 'toggle-turbo-btn':
-            ok = execute_command(fridge_id, "toggle_turbo")
-            return "Turbo toggled successfully." if ok else "Failed to toggle turbo."
-
-        elif triggered_id == 'toggle-valve-btn':
-            if not valve_name:
-                return "Please enter a valve name."
-            ok = execute_command(fridge_id, "toggle_valve", {"valve_name": valve_name})
-            return f"Valve '{valve_name}' toggled." if ok else f"Failed to toggle valve '{valve_name}'."
-
-        elif triggered_id == 'toggle-heat-switch-btn':
-            if not heat_switch_name:
-                return "Please enter a heat switch name."
-            ok = execute_command(fridge_id, "toggle_heat_switch", {"heat_switch_name": heat_switch_name})
-            return f"Heat switch '{heat_switch_name}' toggled." if ok else f"Failed to toggle heat switch '{heat_switch_name}'."
+        elif triggered_id == 'set-resist-btn':
+            if not resist_channel or not resist_value:
+                return "Please enter channel and resistance value."
+            result = execute_command(fridge_id, "set_resist", {"channel": resist_channel, "value": resist_value})
+            return "Resistance set successfully." if result else "Failed to set resistance."
 
         return ""
 

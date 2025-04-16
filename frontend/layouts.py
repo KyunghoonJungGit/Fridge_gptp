@@ -2,16 +2,15 @@
 @description
 Defines the Dash layouts for the Fridge Monitoring dashboard,
 including a multi-fridge overview page, a fridge detail page,
-and a login page. Now updated with improved styling and minimal
-color-coded badges.
+and a login page.
 
 Key features:
 1. get_overview_layout(): A table listing all fridges with colored badges.
 2. get_fridge_detail_layout(fridge_id): 
    - Historical graph
    - Latest readings
-   - Control buttons with consistent styling.
-3. get_login_layout(): A simple login form.
+   - Control inputs for set_temp and set_resist
+3. get_login_layout(): A simple login form
 
 @dependencies
 - dash, dash.html, dash.dcc for building the Dash UI
@@ -19,8 +18,8 @@ Key features:
 - Minimal references to the rest of the code
 
 @notes
-- The <table> elements now have className="overview-table" for styling.
-- We incorporate color-coded badges for fridge states or statuses.
+- We have replaced toggles (like "Toggle Pulsetube") with "Set Temperature" / "Set Resistance" 
+- We include input fields for channel and value, plus the relevant buttons.
 """
 
 from dash import html, dcc
@@ -86,26 +85,47 @@ def get_fridge_detail_layout(fridge_id: str):
 
         # Control Section
         html.Div([
-            html.H3("Fridge Controls"),
-            html.Div([
-                html.Button("Toggle Pulsetube", id='toggle-pulsetube-btn', n_clicks=0),
-                html.Button("Toggle Compressor", id='toggle-compressor-btn', n_clicks=0),
-                html.Button("Toggle Turbo", id='toggle-turbo-btn', n_clicks=0)
-            ], style={'marginBottom': '15px'}),
+            html.H3("Set Temperature or Resistance"),
 
             html.Div([
-                html.Label("Valve Name:", style={'marginRight': '10px', 'fontWeight': '600'}),
-                dcc.Input(id='valve-name-input', type='text', placeholder='e.g., v5',
-                          style={'padding': '6px', 'marginRight': '10px','borderRadius': '4px','border': '1px solid #ccc'}),
-                html.Button("Toggle Valve", id='toggle-valve-btn', n_clicks=0),
-            ], style={'marginBottom': '15px','display': 'flex','alignItems': 'center'}),
+                html.Label("Temp Channel:", style={'marginRight': '10px', 'fontWeight': '600'}),
+                dcc.Input(
+                    id='temp-channel-input',
+                    type='text',
+                    placeholder='e.g., A',
+                    style={'padding': '6px', 'marginRight': '10px',
+                           'borderRadius': '4px','border': '1px solid #ccc'}
+                ),
+                html.Label("Temp Value (K):", style={'marginRight': '10px','fontWeight':'600'}),
+                dcc.Input(
+                    id='temp-value-input',
+                    type='text',
+                    placeholder='e.g., 4.2',
+                    style={'padding': '6px', 'marginRight': '10px',
+                           'borderRadius':'4px','border':'1px solid #ccc'}
+                ),
+                html.Button("Set Temperature", id='set-temp-btn', n_clicks=0),
+            ], style={'marginBottom': '15px','display':'flex','alignItems':'center'}),
 
             html.Div([
-                html.Label("Heat Switch Name:", style={'marginRight': '10px','fontWeight': '600'}),
-                dcc.Input(id='heat-switch-name-input', type='text', placeholder='e.g., hs-still',
-                          style={'padding': '6px','marginRight': '10px','borderRadius': '4px','border': '1px solid #ccc'}),
-                html.Button("Toggle Heat Switch", id='toggle-heat-switch-btn', n_clicks=0),
-            ], style={'marginBottom': '15px','display': 'flex','alignItems': 'center'}),
+                html.Label("Resist Channel:", style={'marginRight': '10px','fontWeight':'600'}),
+                dcc.Input(
+                    id='resist-channel-input',
+                    type='text',
+                    placeholder='e.g., B',
+                    style={'padding':'6px','marginRight':'10px',
+                           'borderRadius':'4px','border':'1px solid #ccc'}
+                ),
+                html.Label("Resist Value (Ohms):", style={'marginRight': '10px','fontWeight':'600'}),
+                dcc.Input(
+                    id='resist-value-input',
+                    type='text',
+                    placeholder='e.g., 1000',
+                    style={'padding':'6px','marginRight':'10px',
+                           'borderRadius':'4px','border':'1px solid #ccc'}
+                ),
+                html.Button("Set Resistance", id='set-resist-btn', n_clicks=0),
+            ], style={'marginBottom': '15px','display':'flex','alignItems':'center'}),
 
             html.Div(id='command-feedback', style={'marginTop': '15px'})
         ], id='control-section', className='panel-box')
