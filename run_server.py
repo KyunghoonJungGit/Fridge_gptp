@@ -27,6 +27,7 @@ Key features:
 
 import os
 import logging
+import secrets
 from dotenv import load_dotenv
 
 # Load environment variables from .env
@@ -55,7 +56,7 @@ if main_config and "logging" in main_config and "level" in main_config["logging"
     logging.getLogger().setLevel(numeric_level)
 
 # Set the Flask secret key from environment or fallback
-secret_key = os.getenv("FLASK_SECRET_KEY", "fallback_secret_key")
+secret_key = secrets.token_hex(32)
 server.secret_key = secret_key
 
 if __name__ == "__main__":

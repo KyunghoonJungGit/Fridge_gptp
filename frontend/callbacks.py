@@ -1,24 +1,32 @@
-""" 
+"""
 @description
-Contains Dash callback definitions for updating the multi-fridge overview table,
-the fridge detail page, handling user commands, and the login mechanism.
+Contains Dash callback definitions for:
+- Updating the multi-fridge overview table
+- Displaying new alerts
+- Showing/hiding the detail page
+- Handling user commands
+- Logging in (session-based)
+- Now toggling the "Login"/"Logout" link based on session state
 
 Key features:
 1. update_overview_table_and_alerts(): builds a stylized table
-2. update_detail_page(): updates detail page with a mock time series
+2. update_detail_page(): updates detail page with timeseries from InfluxDB
 3. handle_fridge_commands(): sets temperature/resistance
 4. login_callback(): verifies credentials
-5. hide_controls_if_not_logged_in(): toggles the control UI
-6. theme toggling callbacks
+5. hide_controls_if_not_logged_in(): toggles control UI
+6. toggle_theme(): toggles between light and dark
+7. NEW: update_login_logout_link(): changes link text from "Login" to "Logout" when logged in
 
 @dependencies
-- dash for the UI
-- backend.fridge_state for fridge data (instead of backend.app)
-- backend.controllers.command_controller for set_temp/set_resist commands
-- flask for sessions
+- dash for UI and callback context
+- flask for session
+- backend.fridge_state for fridge data
+- backend.controllers.command_controller for set_temp/set_resist
+- InfluxDB connector for data queries
 
 @notes
-- No more circular import with app.py
+- We rely on session['logged_in'] to track user login state
+- The new callback modifies the link text/href in the overview page layout
 """
 
 from dash import Input, Output, State, html, no_update, dcc, callback_context
@@ -26,7 +34,6 @@ import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import flask
 
-# Import from fridge_state instead of backend.app
 from backend.fridge_state import (
     get_fridge_ids,
     get_latest_data,
@@ -41,7 +48,7 @@ USERNAME_PASSWORD = {
 }
 
 def init_callbacks(app):
-    """Register all callbacks for overview, detail pages, commands, login, and theme toggling."""
+    """Register all callbacks for overview, detail pages, commands, login, logout link, and theme toggling."""
 
     @app.callback(
         [Output('fridge-overview-table', 'children'),
@@ -137,20 +144,19 @@ def init_callbacks(app):
         if not fridge_id:
             return {}, html.P("No fridge selected")
 
-        # Pull the *latest* polled dict from memory for the right‑hand table
         latest = get_latest_data(fridge_id)
         if not latest:
             return {}, html.P("No data available")
 
-        # ---- NEW PART: fetch real history from InfluxDB -----------------
-        from backend.db.influx_connector import query_data   # local import to avoid circulars
+        # Fetch real history from InfluxDB
+        from backend.db.influx_connector import query_data
 
         flux = f'''
-        from(bucket: "my-bucket")             // or os.getenv("INFLUXDB_BUCKET")
+        from(bucket: "my-bucket")
           |> range(start: -30m)
           |> filter(fn: (r) => r._measurement == "fridge_data")
           |> filter(fn: (r) => r.fridge_id == "{fridge_id}")
-          |> filter(fn: (r) => r._field == "temp_chA")      // plot channel A
+          |> filter(fn: (r) => r._field == "temp_chA")
           |> keep(columns: ["_time", "_value"])
           |> sort(columns: ["_time"])
         '''
@@ -160,7 +166,6 @@ def init_callbacks(app):
             times = [r["time"] for r in rows]
             temps = [r["_value"] for r in rows]
         else:
-            # Fallback to single current reading
             now = datetime.now()
             try:
                 mix_current = float(latest['sensor_status'].get('mix_chamber', 300.0))
@@ -168,9 +173,8 @@ def init_callbacks(app):
                 mix_current = 300.0
             times = [now]
             temps = [mix_current]
-        # -----------------------------------------------------------------
 
-        # Theme‑colours (unchanged)
+        # Theme-based colors
         paper_bg, plot_bg, font_col = (
             ("#1e1e1e", "#2b2b2b", "#f0f0f0") if current_theme == "dark-theme"
             else ("#f8f9fa", "#ffffff", "#333333")
@@ -194,9 +198,11 @@ def init_callbacks(app):
             font=dict(color=font_col)
         )
 
-        # Latest‑readings table (unchanged)
-        sensor_rows = [html.Tr([html.Td(k), html.Td(str(v))])
-                       for k, v in latest.get('sensor_status', {}).items()]
+        # Latest readings table
+        sensor_rows = [
+            html.Tr([html.Td(k), html.Td(str(v))])
+            for k, v in latest.get('sensor_status', {}).items()
+        ]
         sensor_rows.append(html.Tr([html.Td("State"),
                                     html.Td(latest.get('state_message', 'N/A'))]))
 
@@ -205,6 +211,7 @@ def init_callbacks(app):
             style={'width': '100%', 'border': '1px solid #ddd'}
         )
         return fig, readings_table
+
 
     @app.callback(
         Output('command-feedback', 'children'),
@@ -268,6 +275,11 @@ def init_callbacks(app):
          State('login-password', 'value')]
     )
     def login_callback(n_clicks, username, password):
+        """
+        Called when the user clicks the login button on the login page.
+        Verifies the credentials against USERNAME_PASSWORD.
+        Sets session['logged_in'] = True if valid.
+        """
         if n_clicks is None or n_clicks == 0:
             return "", no_update
         if not username or not password:
@@ -286,12 +298,15 @@ def init_callbacks(app):
         Input('hidden-fridge-id', 'children')
     )
     def hide_controls_if_not_logged_in(_):
+        """
+        Hides the temperature/resistance control panels if the user is not logged in.
+        """
         if not flask.session.get('logged_in', False):
             return {'display': 'none'}
         return {'display': 'block'}
 
 
-    # THEME TOGGLING
+    # Theme toggling
     @app.callback(
         Output("theme-store", "data"),
         Input("theme-toggle-button", "n_clicks"),
@@ -310,6 +325,21 @@ def init_callbacks(app):
     def set_container_class(current_theme):
         return current_theme
 
+    @app.callback(
+        [Output('login-logout-link', 'children'),
+         Output('login-logout-link', 'href')],
+        Input('url', 'pathname')
+    )
+    def update_login_logout_link(_pathname):
+        """
+        Observes changes in URL.
+        If session indicates 'logged_in', show "Logout" linking to /logout.
+        Otherwise, show "Login" linking to /login.
+        """
+        if flask.session.get('logged_in', False):
+            return ("Logout", "/logout")
+        else:
+            return ("Login", "/login")
 
 def _colored_fridge_id(fid: str, color_class: str):
     return html.Span([

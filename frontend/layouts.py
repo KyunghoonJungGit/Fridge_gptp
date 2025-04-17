@@ -5,21 +5,17 @@ including a multi-fridge overview page, a fridge detail page,
 and a login page.
 
 Key features:
-1. get_overview_layout(): A table listing all fridges with colored badges.
-2. get_fridge_detail_layout(fridge_id): 
-   - Historical graph
-   - Latest readings
-   - Control inputs for set_temp and set_resist
+1. get_overview_layout(): A table listing all fridges with colored badges + a dynamic login-logout link
+2. get_fridge_detail_layout(fridge_id): Graph, latest readings, control inputs
 3. get_login_layout(): A simple login form
 
 @dependencies
-- dash, dash.html, dash.dcc for building the Dash UI
-- The new CSS in assets/style.css for styling
-- Minimal references to the rest of the code
+- dash (html, dcc) for building UI elements
+- Custom CSS in assets/style.css
 
 @notes
-- We have replaced toggles (like "Toggle Pulsetube") with "Set Temperature" / "Set Resistance" 
-- We include input fields for channel and value, plus the relevant buttons.
+- The link that used to be static "Login" is now replaced by a `dcc.Link` with id='login-logout-link'
+  which is updated by a callback to become "Logout" once user is logged in.
 """
 
 from dash import html, dcc
@@ -29,7 +25,7 @@ def get_overview_layout():
         html.H2("Multi-Fridge Overview", style={'marginTop': '10px'}),
         html.Div(
             id='alert-banner',
-            style={'display': 'none'},  # We'll rely on theme CSS
+            style={'display': 'none'},  # We'll rely on dynamic changes
             children=[]
         ),
         html.P("Below is a list of all active fridges..."),
@@ -38,8 +34,9 @@ def get_overview_layout():
             className="overview-table",
             children=[]
         ),
+        # This link text is updated via callbacks.py -> update_login_logout_link
         html.Div([
-            dcc.Link("Login", href="/login", style={
+            dcc.Link("Loading...", id="login-logout-link", href="/login", style={
                 'marginRight': '20px',
                 'color': '#007bff',
                 'textDecoration': 'none',
@@ -58,7 +55,9 @@ def get_fridge_detail_layout(fridge_id: str):
                 html.Span(fridge_id, className="badge badge-blue")
             ]),
             dcc.Link("Back to Overview", href="/", style={
-                'color': '#007bff', 'textDecoration': 'none', 'fontWeight': '600'
+                'color': '#007bff',
+                'textDecoration': 'none',
+                'fontWeight': '600'
             })
         ], style={'marginBottom': '20px',
                   'display': 'flex',
@@ -138,14 +137,17 @@ def get_login_layout():
         html.Div([
             html.Label("Username:", style={'marginBottom':'6px','fontWeight':'600'}),
             dcc.Input(id='login-username', type='text', placeholder='Username',
-                      style={'display':'block','marginBottom':'15px','padding':'8px','width':'100%','borderRadius':'4px','border':'1px solid #ccc'}),
+                      style={'display':'block','marginBottom':'15px','padding':'8px','width':'100%',
+                             'borderRadius':'4px','border':'1px solid #ccc'}),
 
             html.Label("Password:", style={'marginBottom':'6px','fontWeight':'600'}),
             dcc.Input(id='login-password', type='password', placeholder='Password',
-                      style={'display':'block','marginBottom':'20px','padding':'8px','width':'100%','borderRadius':'4px','border':'1px solid #ccc'}),
+                      style={'display':'block','marginBottom':'20px','padding':'8px','width':'100%',
+                             'borderRadius':'4px','border':'1px solid #ccc'}),
 
             html.Button("Login", id='login-button', n_clicks=0,
-                style={'backgroundColor':'#28a745','color':'white','border':'none','padding':'10px 15px','borderRadius':'4px','cursor':'pointer','width':'100%','fontWeight':'600'}),
+                style={'backgroundColor':'#28a745','color':'white','border':'none','padding':'10px 15px',
+                       'borderRadius':'4px','cursor':'pointer','width':'100%','fontWeight':'600'}),
 
             html.Div(id='login-error-msg', style={'marginTop':'10px'}),
             html.Div([

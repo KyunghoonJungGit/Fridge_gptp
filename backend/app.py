@@ -1,12 +1,12 @@
-"""
+""" 
 @description
 Main entry point for the Fridge Monitoring Dash/Flask application.
 
 Key features:
 - Creates the Dash instance and sets up the layout
-- Defines the background polling callback
-- Exposes the JSON API endpoints
-- Avoids direct fridge logic; uses 'fridge_state.py' for that
+- Defines background polling callbacks
+- Exposes JSON API endpoints
+- Provides /login (via callbacks.py) and now /logout route for session management
 
 @dependencies
 - dash, flask for the web app
@@ -14,14 +14,15 @@ Key features:
 - backend.controllers.command_controller for commands
 - frontend.layouts, frontend.callbacks for the UI
 @notes
-- No circular import with callbacks now because we only import 'init_callbacks'
+- The new /logout route sets 'logged_in' to False or removes it from session
+- No circular import with callbacks because we only import 'init_callbacks'
 """
 
 import dash
 from dash import html, dcc
 from dash.dependencies import Input, Output
 import flask
-from flask import request, jsonify
+from flask import request, jsonify, redirect
 
 from backend.fridge_state import (
     get_fridge_ids,
@@ -36,7 +37,6 @@ from frontend.layouts import (
 )
 from frontend.callbacks import init_callbacks
 from backend.controllers.command_controller import execute_command
-
 
 
 app = dash.Dash(__name__, suppress_callback_exceptions=True)
@@ -128,7 +128,6 @@ def trigger_polling(_):
     poll_all_fridges()
     return False
 
-
 # JSON API Endpoints
 @server.route('/api/fridge/<fridge_id>/latest', methods=['GET'])
 def api_get_fridge_latest(fridge_id):
@@ -161,6 +160,16 @@ def api_post_fridge_command(fridge_id):
             return jsonify({"success": False, "message": "Command execution failed"}), 400
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+# NEW: Logout route
+@server.route('/logout', methods=['GET'])
+def logout():
+    """
+    Logs out the current user by clearing 'logged_in' from the session,
+    then redirects to the overview page.
+    """
+    flask.session['logged_in'] = False
+    return redirect("/")
 
 
 if __name__ == "__main__":
