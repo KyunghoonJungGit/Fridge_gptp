@@ -1,4 +1,4 @@
-"""
+""" 
 @description
 Defines the Dash layouts for the Fridge Monitoring dashboard,
 including a multi-fridge overview page, a fridge detail page,
@@ -14,8 +14,9 @@ Key features:
 - Custom CSS in assets/style.css
 
 @notes
-- The link that used to be static "Login" is now replaced by a `dcc.Link` with id='login-logout-link'
-  which is updated by a callback to become "Logout" once user is logged in.
+- The link that used to be a dcc.Link is now replaced by an html.A
+  so that “Logout” triggers a real HTTP GET request, letting the Flask
+  route at /logout properly log the user out.
 """
 
 from dash import html, dcc
@@ -34,14 +35,21 @@ def get_overview_layout():
             className="overview-table",
             children=[]
         ),
+
         # This link text is updated via callbacks.py -> update_login_logout_link
+        # NOTE: changed dcc.Link -> html.A to ensure a full HTTP GET occurs on logout
         html.Div([
-            dcc.Link("Loading...", id="login-logout-link", href="/login", style={
-                'marginRight': '20px',
-                'color': '#007bff',
-                'textDecoration': 'none',
-                'fontWeight': '600'
-            })
+            html.A(
+                "Loading...", 
+                id="login-logout-link", 
+                href="/login", 
+                style={
+                    'marginRight': '20px',
+                    'color': '#007bff',
+                    'textDecoration': 'none',
+                    'fontWeight': '600'
+                }
+            )
         ], style={'marginTop': '20px'})
     ], style={'padding': '20px'})
     return layout
@@ -93,7 +101,7 @@ def get_fridge_detail_layout(fridge_id: str):
                     type='text',
                     placeholder='e.g., A',
                     style={'padding': '6px', 'marginRight': '10px',
-                           'borderRadius': '4px','border': '1px solid #ccc'}
+                           'borderRadius': '4px', 'border': '1px solid #ccc'}
                 ),
                 html.Label("Temp Value (K):", style={'marginRight': '10px','fontWeight':'600'}),
                 dcc.Input(

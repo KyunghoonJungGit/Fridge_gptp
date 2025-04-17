@@ -6,7 +6,8 @@ Contains Dash callback definitions for:
 - Showing/hiding the detail page
 - Handling user commands
 - Logging in (session-based)
-- Now toggling the "Login"/"Logout" link based on session state
+- Toggling the theme (light/dark)
+- Dynamically updating the login/logout link text
 
 Key features:
 1. update_overview_table_and_alerts(): builds a stylized table
@@ -15,23 +16,24 @@ Key features:
 4. login_callback(): verifies credentials
 5. hide_controls_if_not_logged_in(): toggles control UI
 6. toggle_theme(): toggles between light and dark
-7. NEW: update_login_logout_link(): changes link text from "Login" to "Logout" when logged in
+7. update_login_logout_link(): changes link text from "Login" to "Logout" when logged in
 
 @dependencies
 - dash for UI and callback context
 - flask for session
 - backend.fridge_state for fridge data
 - backend.controllers.command_controller for set_temp/set_resist
-- InfluxDB connector for data queries
+- backend.db.influx_connector for data queries (Plotly timeseries)
 
 @notes
-- We rely on session['logged_in'] to track user login state
-- The new callback modifies the link text/href in the overview page layout
+- The link for logout is an html.A in layouts.py, which ensures a real HTTP GET request to /logout.
+- The detail page was previously hard-coded to query "my-bucket". Now we fetch the actual bucket
+  from backend.db.influx_connector.get_influx_bucket() so it matches the environment settings.
 """
 
 from dash import Input, Output, State, html, no_update, dcc, callback_context
 import plotly.graph_objects as go
-from datetime import datetime, timedelta
+from datetime import datetime
 import flask
 
 from backend.fridge_state import (
@@ -41,6 +43,9 @@ from backend.fridge_state import (
     pop_all_alerts
 )
 from backend.controllers.command_controller import execute_command
+
+# NEW: We import get_influx_bucket from the influx_connector
+from backend.db.influx_connector import query_data, get_influx_bucket
 
 USERNAME_PASSWORD = {
     "admin": "adminpw",
@@ -70,6 +75,7 @@ def init_callbacks(app):
         table_rows = []
         for fid in fridge_ids:
             latest = get_latest_data(fid)
+            row = None
             if not latest:
                 row = html.Tr([
                     html.Td(_colored_fridge_id(fid, "badge-red")),
@@ -78,37 +84,35 @@ def init_callbacks(app):
                     html.Td("N/A"),
                     html.Td(dcc.Link("View Details", href=f"/fridge/{fid}"))
                 ])
-                table_rows.append(row)
-                continue
-
-            sensor_status = latest.get("sensor_status", {})
-            mix_temp_str = sensor_status.get("mix_chamber", "N/A")
-            pressures = latest.get("last_pressures_mbar", [])
-            lowest_p = min(pressures) if pressures else "N/A"
-            state_msg = latest.get("state_message", "N/A")
-
-            # Badge color by fridge ID
-            if "1" in fid:
-                fid_badge_class = "badge-green"
-            elif "2" in fid:
-                fid_badge_class = "badge-yellow"
             else:
-                fid_badge_class = "badge-blue"
+                sensor_status = latest.get("sensor_status", {})
+                mix_temp_str = sensor_status.get("mix_chamber", "N/A")
+                pressures = latest.get("last_pressures_mbar", [])
+                lowest_p = min(pressures) if pressures else "N/A"
+                state_msg = latest.get("state_message", "N/A")
 
-            # Temperature color badge
-            try:
-                mix_val = float(mix_temp_str)
-                temp_badge_class = "badge-green" if mix_val < 300 else "badge-red"
-            except ValueError:
-                temp_badge_class = "badge-yellow"
+                # Badge color by fridge ID
+                if "1" in fid:
+                    fid_badge_class = "badge-green"
+                elif "2" in fid:
+                    fid_badge_class = "badge-yellow"
+                else:
+                    fid_badge_class = "badge-blue"
 
-            row = html.Tr([
-                html.Td(_colored_fridge_id(fid, fid_badge_class)),
-                html.Td(html.Span(mix_temp_str, className=f"badge {temp_badge_class}")),
-                html.Td(str(lowest_p)),
-                html.Td(state_msg),
-                html.Td(dcc.Link("View Details", href=f"/fridge/{fid}"))
-            ])
+                # Temperature color badge
+                try:
+                    mix_val = float(mix_temp_str)
+                    temp_badge_class = "badge-green" if mix_val < 300 else "badge-red"
+                except ValueError:
+                    temp_badge_class = "badge-yellow"
+
+                row = html.Tr([
+                    html.Td(_colored_fridge_id(fid, fid_badge_class)),
+                    html.Td(html.Span(mix_temp_str, className=f"badge {temp_badge_class}")),
+                    html.Td(str(lowest_p)),
+                    html.Td(state_msg),
+                    html.Td(dcc.Link("View Details", href=f"/fridge/{fid}"))
+                ])
             table_rows.append(row)
 
         # Check for new alerts
@@ -121,17 +125,14 @@ def init_callbacks(app):
                     alert_list = html.Ul([html.Li(a) for a in alerts])
                     alert_content.append(alert_list)
 
-            # Show the banner
             banner_style = {
                 'display': 'block',
                 'backgroundColor': '#fff'
             }
             return ([table_header] + table_rows), alert_content, banner_style
         else:
-            # Hide the banner
             banner_style = {'display': 'none'}
             return ([table_header] + table_rows), [], banner_style
-
 
     @app.callback(
         [Output('temp-history-graph', 'figure'),
@@ -141,6 +142,10 @@ def init_callbacks(app):
          Input('theme-store', 'data')]
     )
     def update_detail_page(_, fridge_id, current_theme):
+        """
+        Renders the temperature history graph and latest readings for a single fridge.
+        Queries the bucket specified in the environment (via get_influx_bucket).
+        """
         if not fridge_id:
             return {}, html.P("No fridge selected")
 
@@ -148,11 +153,11 @@ def init_callbacks(app):
         if not latest:
             return {}, html.P("No data available")
 
-        # Fetch real history from InfluxDB
-        from backend.db.influx_connector import query_data
+        bucket_name = get_influx_bucket()  # Use the actual bucket
 
+        # Build a Flux query targeting the user’s configured bucket.
         flux = f'''
-        from(bucket: "my-bucket")
+        from(bucket: "{bucket_name}")
           |> range(start: -30m)
           |> filter(fn: (r) => r._measurement == "fridge_data")
           |> filter(fn: (r) => r.fridge_id == "{fridge_id}")
@@ -166,6 +171,7 @@ def init_callbacks(app):
             times = [r["time"] for r in rows]
             temps = [r["_value"] for r in rows]
         else:
+            # Fallback if no data from Influx
             now = datetime.now()
             try:
                 mix_current = float(latest['sensor_status'].get('mix_chamber', 300.0))
@@ -175,10 +181,10 @@ def init_callbacks(app):
             temps = [mix_current]
 
         # Theme-based colors
-        paper_bg, plot_bg, font_col = (
-            ("#1e1e1e", "#2b2b2b", "#f0f0f0") if current_theme == "dark-theme"
-            else ("#f8f9fa", "#ffffff", "#333333")
-        )
+        if current_theme == "dark-theme":
+            paper_bg, plot_bg, font_col = "#1e1e1e", "#2b2b2b", "#f0f0f0"
+        else:
+            paper_bg, plot_bg, font_col = "#f8f9fa", "#ffffff", "#333333"
 
         fig = go.Figure()
         fig.add_trace(go.Scatter(
@@ -189,7 +195,7 @@ def init_callbacks(app):
             line=dict(color='#007bff')
         ))
         fig.update_layout(
-            title=f"Temperature History – {fridge_id}",
+            title=f"Temperature History – {fridge_id}",
             xaxis_title="Time",
             yaxis_title="Temperature (K)",
             hovermode="x unified",
@@ -211,7 +217,6 @@ def init_callbacks(app):
             style={'width': '100%', 'border': '1px solid #ddd'}
         )
         return fig, readings_table
-
 
     @app.callback(
         Output('command-feedback', 'children'),
@@ -237,8 +242,7 @@ def init_callbacks(app):
         fridge_id
     ):
         """
-        Called when user presses "Set Temperature" or "Set Resistance" button.
-        We pass channel & value to the command_controller with command= "set_temp" or "set_resist".
+        Called when user presses "Set Temperature" or "Set Resistance" button on detail page.
         """
         if not fridge_id:
             return "No fridge selected, cannot send commands."
@@ -254,7 +258,6 @@ def init_callbacks(app):
         if triggered_id == 'set-temp-btn':
             if not temp_channel or not temp_value:
                 return "Please enter channel and temperature value."
-            # Attempt command
             result = execute_command(fridge_id, "set_temp", {"channel": temp_channel, "value": temp_value})
             return "Temperature set successfully." if result else "Failed to set temperature."
 
@@ -266,7 +269,6 @@ def init_callbacks(app):
 
         return ""
 
-
     @app.callback(
         [Output('login-error-msg', 'children'),
          Output('url', 'pathname')],
@@ -277,8 +279,7 @@ def init_callbacks(app):
     def login_callback(n_clicks, username, password):
         """
         Called when the user clicks the login button on the login page.
-        Verifies the credentials against USERNAME_PASSWORD.
-        Sets session['logged_in'] = True if valid.
+        Verifies credentials and sets session['logged_in'] = True if valid.
         """
         if n_clicks is None or n_clicks == 0:
             return "", no_update
@@ -292,19 +293,17 @@ def init_callbacks(app):
         else:
             return "Invalid username or password.", no_update
 
-
     @app.callback(
         Output('control-section', 'style'),
         Input('hidden-fridge-id', 'children')
     )
     def hide_controls_if_not_logged_in(_):
         """
-        Hides the temperature/resistance control panels if the user is not logged in.
+        Hides the temp/resistance control UI if the user is not logged in.
         """
         if not flask.session.get('logged_in', False):
             return {'display': 'none'}
         return {'display': 'block'}
-
 
     # Theme toggling
     @app.callback(
@@ -342,6 +341,7 @@ def init_callbacks(app):
             return ("Login", "/login")
 
 def _colored_fridge_id(fid: str, color_class: str):
+    """Helper function to render a fridge ID with a color-coded badge."""
     return html.Span([
         html.Span(fid, className=f"badge {color_class}")
     ])
