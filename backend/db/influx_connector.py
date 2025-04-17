@@ -16,7 +16,6 @@ Key features:
 @dependencies
 - influxdb-client: The official InfluxDB Python client library
 - python-dotenv for environment variables
-- backend.utils.logger for consistent logging
 
 @notes
 - If the user-specified bucket does not exist, we create it automatically.
@@ -26,10 +25,9 @@ Key features:
 """
 
 import os
-import logging
 from typing import Any, Dict, List
 
-from influxdb_client import InfluxDBClient, Point, BucketsApi
+from influxdb_client import InfluxDBClient, Point
 from influxdb_client.client.write_api import SYNCHRONOUS
 
 from backend.utils.logger import get_logger
