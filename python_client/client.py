@@ -6,7 +6,6 @@ Key features:
 1. FridgeClient class with:
    - get_latest_data(fridge_id): fetch JSON from /api/fridge/<fridge_id>/latest
    - send_command(fridge_id, command, params): POST to /api/fridge/<fridge_id>/command
-   - get_fridge_ids(): optional function to glean known fridge IDs if exposed by the server (not implemented here).
 2. Uses the requests library to communicate with the Dash/Flask server.
 
 @dependencies
@@ -30,8 +29,10 @@ class FridgeClient:
     client = FridgeClient("http://localhost:8050")
     data = client.get_latest_data("fridge_1")
     print("Latest data:", data)
-    result = client.send_command("fridge_1", "toggle_pulsetube")
-    print("Command success?", result)
+    # The command names recognized by the server currently include "set_temp" and "set_resist."
+    # For example, to set a channel's temperature:
+    success = client.send_command("fridge_1", "set_temp", {"channel": "A", "value": 4.2})
+    print("Command success?", success)
     ```
     """
 
@@ -51,7 +52,9 @@ class FridgeClient:
         url = f"{self.base_url}/api/fridge/{fridge_id}/latest"
         response = requests.get(url)
         if response.status_code != 200:
-            raise RuntimeError(f"Failed to get latest data (status={response.status_code}). {response.text}")
+            raise RuntimeError(
+                f"Failed to get latest data (status={response.status_code}). {response.text}"
+            )
         resp_json = response.json()
         if not resp_json.get("success"):
             err_msg = resp_json.get("error", "Unknown error")
@@ -63,8 +66,8 @@ class FridgeClient:
         Send a command to the specified fridge.
 
         :param fridge_id: The unique fridge ID
-        :param command: The command string (e.g. 'toggle_valve', 'toggle_pulsetube')
-        :param params: Optional dictionary of parameters (e.g. {"valve_name": "v5"})
+        :param command: The command string (e.g. 'set_temp', 'set_resist')
+        :param params: Optional dictionary of parameters (e.g., {"channel": "A", "value": 4.2})
         :return: True if command was executed successfully, False otherwise.
         """
         if params is None:
@@ -75,8 +78,17 @@ class FridgeClient:
             "params": params
         }
         response = requests.post(url, json=payload)
-        if response.status_code != 200 and response.status_code != 400:
+        if response.status_code not in (200, 400):
             # Could be 500 or something else
-            raise RuntimeError(f"Command request failed (status={response.status_code}). {response.text}")
+            raise RuntimeError(
+                f"Command request failed (status={response.status_code}). {response.text}"
+            )
         resp_json = response.json()
         return bool(resp_json.get("success", False))
+
+if __name__ == "__main__":
+    client = FridgeClient("http://localhost:8050")
+    data = client.get_latest_data("fridge_1")
+    print("Latest data:", data)
+    success = client.send_command("fridge_1", "set_temp", {"channel": "A", "value": 4.2})
+    print("Command success?", success)

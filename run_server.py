@@ -40,22 +40,8 @@ init_influxdb_client()
 # Import the Dash app from backend/app.py
 from backend.app import app, server
 
-# We'll need our YAML config loader
-from utils.config_loader import load_yaml_config
-
-# Load the main config (e.g., logging config)
-main_config = load_yaml_config("config/config.yaml")
-
-# Load device/fridge config
-devices_config = load_yaml_config("config/devices.yaml")
-
-# Apply logging level from main_config if specified
-if main_config and "logging" in main_config and "level" in main_config["logging"]:
-    level_str = main_config["logging"]["level"].upper()
-    numeric_level = getattr(logging, level_str, logging.INFO)
-    logging.getLogger().setLevel(numeric_level)
-
 # Set the Flask secret key from environment or fallback
+# Randomly generated for security
 secret_key = secrets.token_hex(32)
 server.secret_key = secret_key
 
